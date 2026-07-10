@@ -84,6 +84,9 @@ export function Sidebar({
             <button onClick={() => setVueActive("mes-entites")} className={navButtonClass(vueActive === "mes-entites")}>
               {cur.mesDocuments}
             </button>
+            <button onClick={() => setVueActive("mes-dossiers-en-cours")} className={navButtonClass(vueActive === "mes-dossiers-en-cours")}>
+              {cur.mesDossiersEnCours}
+            </button>
             {canSeeEntrantAdmin && (
               <button onClick={() => setVueActive("entrant-admin")} className={navButtonClass(vueActive === "entrant-admin")}>
                 {cur.admin}
@@ -160,6 +163,11 @@ export function Sidebar({
             <button onClick={() => setVueActive("admin-equipements")} className={navButtonClass(vueActive === "admin-equipements")}>
               {cur.equipements}
             </button>
+            {isAdmin && (
+              <button onClick={() => setVueActive("admin-services-historiques")} className={navButtonClass(vueActive === "admin-services-historiques")}>
+                {cur.servicesHistoriques}
+              </button>
+            )}
             <button onClick={() => setVueActive("admin-listes")} className={navButtonClass(vueActive === "admin-listes")}>
               {cur.listesDynamiques}
             </button>

@@ -18,6 +18,7 @@ export const translations = {
     statRefusees: "Refusées",
     statAnnulees: "Annulées",
     mesEntites: "Documents et procédures actuelles",
+    mesDossiersEnCours: "Mes Dossiers En Cours",
     tblTitre: "Titre / Objet",
     tblRef: "Numéro de référence",
     tblType: "Type",
@@ -149,6 +150,7 @@ export const translations = {
     equipements: "Équipements",
     utilisateurs: "Utilisateurs",
     services: "Services",
+    servicesHistoriques: "Services Historiques",
     listesDynamiques: "Listes dynamiques",
     source: "Source",
     dateArrivee: "Date d'arrivée",
@@ -251,6 +253,27 @@ export const translations = {
     extrait: "Extrait"
   },
 
+  // Historical Services
+  gestionServicesHistoriques: "Gestion des Services Historiques",
+  nouveauServiceHistorique: "Nouveau Service Historique",
+  modifierServiceHistorique: "Modifier Service Historique",
+  supprimerServiceHistorique: "Supprimer Service Historique",
+  nomService: "Nom du service",
+  codeService: "Code du service",
+  descriptionService: "Description",
+  categorieService: "Catégorie",
+  ordreAffichage: "Ordre d'affichage",
+  serviceParent: "Service parent",
+  aucunServiceParent: "Aucun (racine)",
+  serviceHistoriqueCree: "Service historique créé",
+  serviceHistoriqueModifie: "Service historique modifié",
+  serviceHistoriqueSupprime: "Service historique supprimé",
+  erreurCodeExiste: "Ce code existe déjà",
+  erreurServiceEnfants: "Impossible de supprimer: ce service a des sous-services",
+  confirmerSuppression: "Confirmer la suppression ?",
+  servicesHistoriquesVides: "Aucun service historique pour le moment",
+  creerPremierService: "Créer le premier service historique",
+
   ar: {
     royaume: "المملكة المغربية",
     courAppel: "محكمة الاستئناف الإدارية",
@@ -268,6 +291,7 @@ export const translations = {
     statRefusees: "مرفوضة",
     statAnnulees: "ملغاة",
     mesEntites: "الوثائق والإجراءات الحالية",
+    mesDossiersEnCours: "ملفاتي الجارية",
     tblTitre: "العنوان / الموضوع",
     tblRef: "رقم المرجع",
     tblType: "النوع",
@@ -399,6 +423,7 @@ export const translations = {
     equipements: "المعدات",
     utilisateurs: "المستخدمون",
     services: "المصالح",
+    servicesHistoriques: "الخدمات التاريخية",
     listesDynamiques: "اللوائح الديناميكية",
     source: "المصدر",
     dateArrivee: "تاريخ الوصول",
@@ -500,4 +525,4 @@ export const translations = {
     chemin: "المسار",
     extrait: "مقتطف"
   }
-};
+}

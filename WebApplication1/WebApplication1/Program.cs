@@ -103,7 +103,7 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("=========================================");
         }
 
-        // --- 2. Seed RBAC Services (8 target services) ---
+        // --- 2. Seed RBAC Services (9 target services including atabligh) ---
         context.ChangeTracker.Clear();
         if (!context.RbacServices.Any())
         {
@@ -116,11 +116,12 @@ using (var scope = app.Services.CreateScope())
                 new Service { Nom = "Khibra (Expertise)", Code = "khibra", Description = "Service d'expertise" },
                 new Service { Nom = "Taslim Nusakh", Code = "taslimnosakh", Description = "Délivrance des copies" },
                 new Service { Nom = "Tasfiyat Sawa2ir Takmilia", Code = "tasfiatSawa2irTakmilia", Description = "Règlement des affaires complémentaires" },
-                new Service { Nom = "Archive", Code = "archive", Description = "Service des archives" }
+                new Service { Nom = "Archive", Code = "archive", Description = "Service des archives" },
+                new Service { Nom = "Atabligh", Code = "atabligh", Description = "Service de notification et التبليغ" }
             };
             context.RbacServices.AddRange(rbacServices);
             context.SaveChanges();
-            Console.WriteLine("8 RBAC services créés.");
+            Console.WriteLine("9 RBAC services créés.");
         }
 
         // --- 3. Seed Permissions (~40) ---
@@ -204,7 +205,9 @@ using (var scope = app.Services.CreateScope())
                 ["taslimnosakh"] = new() { "transferer", "consulter", "accepter", "refuser", "dashboard", "mes_entites", "transactions", "archives_view", "recherche_avancee", "export_excel", "export_word", "voir_historique", "telecharger_fichiers", "profil" },
                 ["tasfiatSawa2irTakmilia"] = new() { "transferer", "consulter", "accepter", "refuser", "dashboard", "mes_entites", "transactions", "recherche_avancee", "export_excel", "export_word", "voir_historique", "telecharger_fichiers", "profil" },
                 // Archiver uniquement
-                ["archive"] = new() { "archiver", "consulter", "restaurer", "voir_corbeille", "retrait_archive", "accepter", "refuser", "dashboard", "mes_entites", "archives_view", "recherche_avancee", "export_excel", "export_word", "voir_historique", "telecharger_fichiers", "profil" }
+                ["archive"] = new() { "archiver", "consulter", "restaurer", "voir_corbeille", "retrait_archive", "accepter", "refuser", "dashboard", "mes_entites", "archives_view", "recherche_avancee", "export_excel", "export_word", "voir_historique", "telecharger_fichiers", "profil" },
+                // atabligh - Transférer uniquement (comme taslimnosakh)
+                ["atabligh"] = new() { "transferer", "consulter", "accepter", "refuser", "dashboard", "mes_entites", "transactions", "archives_view", "recherche_avancee", "export_excel", "export_word", "voir_historique", "telecharger_fichiers", "profil" }
             };
 
             foreach (var service in allServices)
@@ -246,7 +249,46 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("AdminPermissionOverrides seedés (6 permissions désactivées).");
         }
 
-        // --- 6. Seed one user per RBAC service ---
+        // --- 5b. Seed Historical Services (Virtual services for history tracking only) ---
+        context.ChangeTracker.Clear();
+        if (!context.HistoricalServices.Any())
+        {
+            var historicalServices = new List<HistoricalService>
+            {
+                // Service des audiences (excluding Expertise which is active as Khibra)
+                new HistoricalService { Nom = "Recherche", Code = "recherche", Description = "Service de recherche", SortOrder = 10 },
+                new HistoricalService { Nom = "Commissaire du roi", Code = "commissaire_roi", Description = "Commissaire du roi", SortOrder = 20 },
+                new HistoricalService { Nom = "Conseiller rapporteur", Code = "conseiller_rapporteur", Description = "Conseiller rapporteur", SortOrder = 30 },
+
+                // Délivrance des copies (excluding Notification which is atabligh, Archives which is active)
+                new HistoricalService { Nom = "Règlement des dépens", Code = "reglement_depens", Description = "Règlement des dépens", SortOrder = 40 },
+
+                // Secrétariat particulier, Ouverture des dossiers
+                new HistoricalService { Nom = "Secrétariat particulier", Code = "secretariat_particulier", Description = "Secrétariat particulier", SortOrder = 50 },
+                new HistoricalService { Nom = "Ouverture des dossiers", Code = "ouverture_dossiers", Description = "Ouverture des dossiers", SortOrder = 60 },
+
+                // Autres services
+                new HistoricalService { Nom = "Bureau de notification", Code = "bureau_notification", Description = "Bureau de notification", SortOrder = 70 },
+                new HistoricalService { Nom = "Bureau d'expertise", Code = "bureau_expertise", Description = "Bureau d'expertise", SortOrder = 80 },
+                new HistoricalService { Nom = "Cellule informatique", Code = "cellule_informatique", Description = "Cellule informatique", SortOrder = 90 },
+                new HistoricalService { Nom = "Gestion financière", Code = "gestion_financiere", Description = "Gestion financière", SortOrder = 100 },
+                new HistoricalService { Nom = "Caisse du tribunal", Code = "caisse_tribunal", Description = "Caisse du tribunal", SortOrder = 110 },
+                new HistoricalService { Nom = "Recouvrement", Code = "recouvrement", Description = "Service de recouvrement", SortOrder = 120 },
+
+                // Procédures commissaire royal, Pourvois en cassation, Remise copie jugement, Efficacité judiciaire, Greffe, Direction
+                new HistoricalService { Nom = "Procédures commissaire royal", Code = "procedures_commissaire_royal", Description = "Procédures commissaire royal", SortOrder = 130 },
+                new HistoricalService { Nom = "Pourvois en cassation", Code = "pourvois_cassation", Description = "Pourvois en cassation", SortOrder = 140 },
+                new HistoricalService { Nom = "Remise copie jugement", Code = "remise_copie_jugement", Description = "Remise copie jugement", SortOrder = 150 },
+                new HistoricalService { Nom = "Efficacité judiciaire", Code = "efficacite_judiciaire", Description = "Efficacité judiciaire", SortOrder = 160 },
+                new HistoricalService { Nom = "Greffe", Code = "greffe", Description = "Greffe", SortOrder = 170 },
+                new HistoricalService { Nom = "Direction", Code = "direction", Description = "Direction", SortOrder = 180 }
+            };
+            context.HistoricalServices.AddRange(historicalServices);
+            context.SaveChanges();
+            Console.WriteLine($"{historicalServices.Count} services historiques créés.");
+        }
+
+        // --- 6. Seed one user per RBAC service (including atabligh) ---
         context.ChangeTracker.Clear();
         var rbacServiceList = context.RbacServices.ToList();
         var serviceUserDefs = new[]
@@ -258,7 +300,8 @@ using (var scope = app.Services.CreateScope())
             new { Login = "khibra", Pass = "khibra123", Nom = "Agent Expertise", ServiceCode = "khibra" },
             new { Login = "taslimnosakh", Pass = "taslim123", Nom = "Agent Taslim Nusakh", ServiceCode = "taslimnosakh" },
             new { Login = "tasfiya", Pass = "tasfiya123", Nom = "Agent Tasfiyat Sawa2ir", ServiceCode = "tasfiatSawa2irTakmilia" },
-            new { Login = "archive", Pass = "archive123", Nom = "Agent Archive", ServiceCode = "archive" }
+            new { Login = "archive", Pass = "archive123", Nom = "Agent Archive", ServiceCode = "archive" },
+            new { Login = "atabligh", Pass = "atabligh123", Nom = "Agent Atabligh", ServiceCode = "atabligh" }
         };
 
         foreach (var u in serviceUserDefs)

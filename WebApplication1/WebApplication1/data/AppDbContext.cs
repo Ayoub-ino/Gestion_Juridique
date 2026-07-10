@@ -29,6 +29,7 @@ namespace WebApplication1.Data
         public DbSet<Permission> Permissions { get; set; }
         public DbSet<ServicePermission> ServicePermissions { get; set; }
         public DbSet<AdminPermissionOverride> AdminPermissionOverrides { get; set; }
+        public DbSet<HistoricalService> HistoricalServices { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -52,6 +53,11 @@ namespace WebApplication1.Data
             // AdminPermissionOverride: unique PermissionKey
             modelBuilder.Entity<AdminPermissionOverride>()
                 .HasIndex(e => e.PermissionKey)
+                .IsUnique();
+
+            // HistoricalService: unique Code
+            modelBuilder.Entity<HistoricalService>()
+                .HasIndex(h => h.Code)
                 .IsUnique();
 
             // Utilisateur -> Service FK

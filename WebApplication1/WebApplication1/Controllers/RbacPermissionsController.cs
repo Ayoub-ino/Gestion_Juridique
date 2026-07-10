@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 using WebApplication1.Data;
 using WebApplication1.Models;
 using WebApplication1.Services;
@@ -90,7 +91,14 @@ namespace WebApplication1.Controllers
             if (service == null)
                 return NotFound(new { error = "Service non trouvé" });
 
-            await _permissionService.UpdateServicePermissionsAsync(serviceId, dto.Permissions);
+            // Convert to Service DTO
+            var perms = dto.Permissions.Select(p => new WebApplication1.Services.ServicePermissionUpdateDto
+            {
+                PermissionKey = p.PermissionKey,
+                Enabled = p.Enabled
+            }).ToList();
+
+            await _permissionService.UpdateServicePermissionsAsync(serviceId, perms);
             return Ok(new { message = "Permissions mises à jour avec succès" });
         }
 
@@ -161,16 +169,24 @@ namespace WebApplication1.Controllers
         /// </summary>
         [HttpPut("admin")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateAdminOverrides([FromBody] List<ServicePermissionUpdateDto> updates)
+        public async Task<IActionResult> UpdateAdminOverrides([FromBody] AdminPermissionUpdateRequest request)
         {
+            if (request?.Permissions == null)
+                return BadRequest(new { error = "Données invalides" });
+
             // Remove all existing overrides
             var existing = await _context.AdminPermissionOverrides.ToListAsync();
             _context.AdminPermissionOverrides.RemoveRange(existing);
 
             // Only store overrides for permissions that are explicitly disabled
             // (Enabled permissions don't need an override since admin gets all by default)
-            foreach (var update in updates.Where(u => !u.Enabled))
+            foreach (var update in request.Permissions.Where(u => !u.Enabled))
             {
+                // Validate that the permission key exists
+                var permExists = await _context.Permissions.AnyAsync(p => p.Key == update.PermissionKey);
+                if (!permExists)
+                    continue; // Skip invalid permission keys
+
                 _context.AdminPermissionOverrides.Add(new AdminPermissionOverride
                 {
                     PermissionKey = update.PermissionKey,
@@ -183,8 +199,31 @@ namespace WebApplication1.Controllers
         }
     }
 
+    public class AdminPermissionUpdateRequest
+    {
+        public List<AdminPermissionUpdateDto> Permissions { get; set; } = new();
+    }
+
     public class UpdateServicePermissionsDto
     {
         public List<ServicePermissionUpdateDto> Permissions { get; set; } = new();
+    }
+
+    public class ServicePermissionUpdateDto
+    {
+        [JsonPropertyName("permissionKey")]
+        public string PermissionKey { get; set; } = string.Empty;
+
+        [JsonPropertyName("enabled")]
+        public bool Enabled { get; set; }
+    }
+
+    public class AdminPermissionUpdateDto
+    {
+        [JsonPropertyName("permissionKey")]
+        public string PermissionKey { get; set; } = string.Empty;
+
+        [JsonPropertyName("enabled")]
+        public bool Enabled { get; set; }
     }
 }
