@@ -1,0 +1,348 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Langue, UserItem, RbacService } from "@/app/types";
+import { ExportFormat } from "@/lib/exportImport";
+
+interface Props {
+  langue: Langue;
+  cur: any;
+  token: string | null;
+  BASE_URL: string;
+  onExport?: (format: ExportFormat) => void;
+}
+
+export function GestionUtilisateurs({ langue, cur, token, BASE_URL, onExport }: Props) {
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [rbacServices, setRbacServices] = useState<RbacService[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterService, setFilterService] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState({ nom: "", login: "", password: "", serviceId: 0 });
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedUsers, setArchivedUsers] = useState<UserItem[]>([]);
+  const [loadingArchived, setLoadingArchived] = useState(false);
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/Users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setUsers(await res.json());
+    } catch (err) { console.error("Erreur fetch users:", err); }
+  };
+
+  const fetchServices = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/rbac/services`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setRbacServices(await res.json());
+    } catch (err) { console.error("Erreur fetch services:", err); }
+  };
+
+  const fetchArchivedUsers = async () => {
+    setLoadingArchived(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/Users?includeInactive=true`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setArchivedUsers(data.filter((u: UserItem & { isActive?: boolean }) => u.isActive === false));
+    } catch (err) {
+      console.error("Erreur lors du chargement des utilisateurs archivés", err);
+    } finally {
+      setLoadingArchived(false);
+    }
+  };
+
+  useEffect(() => { fetchUsers(); fetchServices(); }, []);
+
+  const filtered = users.filter(u => {
+    const matchSearch = !searchTerm || u.nom.toLowerCase().includes(searchTerm.toLowerCase()) || u.login.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchService = !filterService || u.serviceId?.toString() === filterService;
+    return matchSearch && matchService;
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const url = editingId ? `${BASE_URL}/api/Users/${editingId}` : `${BASE_URL}/api/Users`;
+      const method = editingId ? "PUT" : "POST";
+      const svc = rbacServices.find(s => s.id === form.serviceId);
+      const body: any = {
+        nom: form.nom,
+        login: form.login,
+        serviceId: form.serviceId,
+        service: svc?.code || "",
+      };
+      if (form.password) body.password = form.password;
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        let errMsg = errText;
+        try { errMsg = JSON.parse(errText).error || errText; } catch {}
+        if (res.status === 401 || res.status === 403) {
+          alert(langue === "fr" ? "Accès refusé. Votre session a peut-être expiré. Reconnectez-vous." : "تم رفض الوصول. ربما انتهت جلسته. أعد تسجيل الدخول.");
+        } else {
+          alert(errMsg || (langue === "fr" ? "Erreur" : "خطأ"));
+        }
+        return;
+      }
+
+      alert(editingId ? (langue === "fr" ? "Utilisateur modifié" : "تم تعديل المستخدم") : (langue === "fr" ? "Utilisateur créé" : "تم إنشاء المستخدم"));
+      setShowForm(false);
+      setEditingId(null);
+      setForm({ nom: "", login: "", password: "", serviceId: 0 });
+      fetchUsers();
+    } catch (err: any) {
+      alert((langue === "fr" ? "Erreur: " : "خطأ: ") + err.message);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm(langue === "fr" ? "Supprimer cet utilisateur ?" : "هل تريد حذف هذا المستخدم؟")) return;
+    try {
+      const res = await fetch(`${BASE_URL}/api/Users/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || (langue === "fr" ? "Erreur" : "خطأ"));
+        return;
+      }
+      fetchUsers();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleRestoreUser = async (id: number) => {
+    if (!confirm("Restaurer cet utilisateur ?")) return;
+    try {
+      const res = await fetch(`${BASE_URL}/api/Users/${id}/restore`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        alert("Utilisateur restauré avec succès");
+        fetchArchivedUsers();
+      }
+    } catch (err) {
+      console.error("Erreur lors de la restauration", err);
+    }
+  };
+
+  const startEdit = (u: UserItem) => {
+    setEditingId(u.id);
+    setForm({ nom: u.nom, login: u.login, password: "", serviceId: u.serviceId || 0 });
+    setShowForm(true);
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+        <div className="flex flex-wrap gap-3 items-center">
+          <input
+            type="text"
+            placeholder={langue === "fr" ? "Rechercher (nom, login)" : "بحث (الاسم، تسجيل الدخول)"}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-1 min-w-64 p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50"
+          />
+          <select
+            value={filterService}
+            onChange={(e) => setFilterService(e.target.value)}
+            className="p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
+          >
+            <option value="">{langue === "fr" ? "Tous les services" : "جميع المصالح"}</option>
+            {rbacServices.map(svc => (
+              <option key={svc.id} value={svc.id}>{svc.nom}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ nom: "", login: "", password: "", serviceId: 0 }); }}
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition"
+          >
+            + {cur.ajouter}
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
+          <h3 className="font-bold text-sm text-slate-800 mb-4">
+            {editingId ? (langue === "fr" ? "Modifier l'utilisateur" : "تعديل المستخدم") : (langue === "fr" ? "Ajouter utilisateur" : "إضافة مستخدم")}
+          </h3>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Nom complet *" : "الاسم الكامل *"}</label>
+              <input type="text" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} required
+                className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.login} *</label>
+              <input type="text" value={form.login} onChange={(e) => setForm({ ...form, login: e.target.value })} required
+                className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Mot de passe *" : "كلمة المرور *"}</label>
+              <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder={editingId ? (langue === "fr" ? "Laisser vide pour ne pas changer" : "اتركه فارغاً لعدم التغيير") : ""}
+                required={!editingId}
+                className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Service *" : "المصلحة *"}</label>
+              <select value={form.serviceId} onChange={(e) => setForm({ ...form, serviceId: parseInt(e.target.value) })} required
+                className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500">
+                <option value={0}>{langue === "fr" ? "Sélectionner un service" : "اختر مصلحة"}</option>
+                {rbacServices.map(svc => (
+                  <option key={svc.id} value={svc.id}>{svc.nom}</option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-4 flex gap-2">
+              <button type="submit" className="px-6 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">
+                {editingId ? (langue === "fr" ? "Modifier" : "تعديل") : cur.ajouter}
+              </button>
+              <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }}
+                className="px-6 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition">
+                {cur.fermer}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <h3 className="font-bold text-slate-800 text-xs">
+            {langue === "fr" ? "Utilisateurs" : "المستخدمون"}
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">
+              {filtered.length} {langue === "fr" ? "utilisateurs" : "مستخدم"}
+            </span>
+            <button
+              onClick={() => { setShowArchived(true); fetchArchivedUsers(); }}
+              className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2 text-xs"
+            >
+              🗂️ {langue === "fr" ? "Voir les utilisateurs archivés" : "عرض المستخدمين المؤرشفة"}
+            </button>
+            {onExport && (
+              <div className="flex gap-1">
+                <button type="button" onClick={() => onExport("export excel")}
+                  className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hover:bg-emerald-100">
+                   export excel
+                </button>
+<button type="button" onClick={() => onExport("export word")}
+                  className="px-2 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100">
+                   export word
+                 </button>
+              </div>
+            )}
+          </div>
+        </div>
+        {showArchived ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-sky-50 border-b border-sky-200 text-slate-700">
+                <tr>
+                  <th className="p-3 text-start">ID</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Nom complet" : "الاسم الكامل"}</th>
+                  <th className="p-3 text-start">{cur.login}</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Service" : "المصلحة"}</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Date de suppression" : "تاريخ الحذف"}</th>
+                  <th className="p-3 text-center">{cur.tblActions}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingArchived ? (
+                  <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-bold">{langue === "fr" ? "Chargement..." : "جاري التحميل..."}</td></tr>
+                ) : archivedUsers.length === 0 ? (
+                  <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-bold">{langue === "fr" ? "Aucun utilisateur archivé" : "لا يوجد مستخدمين مؤرشفة"}</td></tr>
+                ) : (
+                  archivedUsers.map(u => (
+                    <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="p-3 font-mono">{u.id}</td>
+                      <td className="p-3 font-bold">{u.nom}</td>
+                      <td className="p-3 font-mono">{u.login}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 rounded bg-blue-50 text-blue-700 font-bold text-[10px]">
+                          {u.serviceNom || u.service || "-"}
+                        </span>
+                      </td>
+                      <td className="p-3">{(u as any).deletedAt ? new Date((u as any).deletedAt).toLocaleDateString() : "-"}</td>
+                      <td className="p-3">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            onClick={() => handleRestoreUser(u.id)}
+                            className="px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold"
+                          >
+                            {langue === "fr" ? "Restaurer" : "استعادة"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-sky-50 border-b border-sky-200 text-slate-700">
+                <tr>
+                  <th className="p-3 text-start">ID</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Nom complet" : "الاسم الكامل"}</th>
+                  <th className="p-3 text-start">{cur.login}</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Service" : "المصلحة"}</th>
+                  <th className="p-3 text-center">{cur.tblActions}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-slate-400 font-bold">{cur.aucunDoc}</td></tr>
+                ) : (
+                  filtered.map(u => (
+                    <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="p-3 font-mono">{u.id}</td>
+                      <td className="p-3 font-bold">{u.nom}</td>
+                      <td className="p-3 font-mono">{u.login}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 rounded bg-blue-50 text-blue-700 font-bold text-[10px]">
+                          {u.serviceNom || u.service || "-"}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex justify-center gap-2">
+                          <button type="button" onClick={() => startEdit(u)}
+                            className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold">
+                            {langue === "fr" ? "Modifier" : "تعديل"}
+                          </button>
+                          <button type="button" onClick={() => handleDelete(u.id)}
+                            className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold">
+                            {cur.btnSupprimer}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
