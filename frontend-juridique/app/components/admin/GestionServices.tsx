@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Langue, ServiceItem } from "@/app/types";
+import { Langue, RbacService } from "@/app/types";
 import { ExportFormat } from "@/lib/exportImport";
 
 interface Props {
@@ -13,16 +13,15 @@ interface Props {
 }
 
 export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Props) {
-  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [services, setServices] = useState<RbacService[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterEtage, setFilterEtage] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState({ nom: "", description: "", etage: "" });
+  const [form, setForm] = useState({ nom: "", code: "", description: "" });
 
   const fetchServices = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/Services`, {
+      const res = await fetch(`${BASE_URL}/api/rbac/services`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setServices(await res.json());
@@ -31,18 +30,17 @@ export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Prop
 
   useEffect(() => { fetchServices(); }, []);
 
-  const filtered = services.filter(s => {
-    const matchSearch = !searchTerm || s.nom.toLowerCase().includes(searchTerm.toLowerCase()) || s.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchEtage = !filterEtage || s.etage === filterEtage;
-    return matchSearch && matchEtage;
-  });
-
-  const etages = [...new Set(services.map(s => s.etage).filter(Boolean))];
+  const filtered = services.filter(s =>
+    !searchTerm ||
+    s.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editingId ? `${BASE_URL}/api/Services/${editingId}` : `${BASE_URL}/api/Services`;
+      const url = editingId ? `${BASE_URL}/api/rbac/services/${editingId}` : `${BASE_URL}/api/rbac/services`;
       const method = editingId ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -60,7 +58,7 @@ export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Prop
       alert(editingId ? (langue === "fr" ? "Service modifié" : "تم تعديل المصلحة") : (langue === "fr" ? "Service créé" : "تم إنشاء المصلحة"));
       setShowForm(false);
       setEditingId(null);
-      setForm({ nom: "", description: "", etage: "" });
+      setForm({ nom: "", code: "", description: "" });
       fetchServices();
     } catch (err: any) {
       alert((langue === "fr" ? "Erreur: " : "خطأ: ") + err.message);
@@ -70,7 +68,7 @@ export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Prop
   const handleDelete = async (id: number) => {
     if (!confirm(langue === "fr" ? "Supprimer ce service ?" : "هل تريد حذف هذه المصلحة؟")) return;
     try {
-      await fetch(`${BASE_URL}/api/Services/${id}`, {
+      await fetch(`${BASE_URL}/api/rbac/services/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -84,17 +82,12 @@ export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Prop
         <div className="flex flex-wrap gap-3 items-center">
           <input
             type="text"
-            placeholder={langue === "fr" ? "Rechercher nom/description" : "بحث بالاسم/الوصف"}
+            placeholder={langue === "fr" ? "Rechercher nom/code/description" : "بحث بالاسم/الكود/الوصف"}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 min-w-64 p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50"
           />
-          <select value={filterEtage} onChange={(e) => setFilterEtage(e.target.value)}
-            className="p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-white">
-            <option value="">{langue === "fr" ? "Tous les étages" : "جميع الطوابق"}</option>
-            {etages.map(e => <option key={e} value={e}>{e}</option>)}
-          </select>
-          <button type="button" onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ nom: "", description: "", etage: "" }); }}
+          <button type="button" onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ nom: "", code: "", description: "" }); }}
             className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">
             + {cur.ajouter}
           </button>
@@ -106,10 +99,16 @@ export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Prop
           <h3 className="font-bold text-sm text-slate-800 mb-4">
             {editingId ? (langue === "fr" ? "Modifier le service" : "تعديل المصلحة") : (langue === "fr" ? "Ajouter un service" : "إضافة مصلحة")}
           </h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Nom *" : "الاسم *"}</label>
               <input type="text" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} required
+                className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Code *" : "الكود *"}</label>
+              <input type="text" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required
+                placeholder={langue === "fr" ? "ex: bureauordre" : "مثال: bureauordre"}
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
@@ -117,13 +116,7 @@ export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Prop
               <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Étage" : "الطابق"}</label>
-              <input type="text" value={form.etage} onChange={(e) => setForm({ ...form, etage: e.target.value })}
-                placeholder={langue === "fr" ? "1er, 2ème, RDC..." : "الطابق 1، 2، الأرضي..."}
-                className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
-            </div>
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-2 md:col-span-3">
               <button type="submit" className="px-6 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">
                 {editingId ? (langue === "fr" ? "Modifier" : "تعديل") : cur.ajouter}
               </button>
@@ -139,26 +132,20 @@ export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Prop
       <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 className="font-bold text-slate-800 text-xs">
-            {langue === "fr" ? "Services" : "المصالح"}
+            {langue === "fr" ? "Services RBAC (8 définis)" : "مصالح RBAC (8 معرفة)"}
           </h3>
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500">
-              {filtered.length} {langue === "fr" ? "services" : "مصلحة"}
+              {filtered.length} / 8 {langue === "fr" ? "services" : "مصلحة"}
             </span>
             {onExport && (
               <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={() => onExport("export excel")}
-                  className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hover:bg-emerald-100"
-                >
+                <button type="button" onClick={() => onExport("export excel")}
+                  className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hover:bg-emerald-100">
                   export excel
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onExport("export word")}
-                  className="px-2 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100"
-                >
+                <button type="button" onClick={() => onExport("export word")}
+                  className="px-2 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100">
                   export word
                 </button>
               </div>
@@ -171,24 +158,26 @@ export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Prop
               <tr>
                 <th className="p-3 text-start">ID</th>
                 <th className="p-3 text-start">{langue === "fr" ? "Nom" : "الاسم"}</th>
+                <th className="p-3 text-start">{langue === "fr" ? "Code" : "الكود"}</th>
                 <th className="p-3 text-start">{langue === "fr" ? "Description" : "الوصف"}</th>
-                <th className="p-3 text-start">{langue === "fr" ? "Étage" : "الطابق"}</th>
+                <th className="p-3 text-center">{langue === "fr" ? "Utilisateurs" : "المستخدمون"}</th>
                 <th className="p-3 text-center">{cur.tblActions}</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className="p-8 text-center text-slate-400 font-bold">{cur.aucunDoc}</td></tr>
+                <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-bold">{cur.aucunDoc}</td></tr>
               ) : (
                 filtered.map(s => (
                   <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="p-3 font-mono">{s.id}</td>
                     <td className="p-3 font-bold">{s.nom}</td>
+                    <td className="p-3 font-mono text-xs text-slate-600">{s.code}</td>
                     <td className="p-3">{s.description}</td>
-                    <td className="p-3">{s.etage}</td>
+                    <td className="p-3 text-center font-medium">{s.userCount}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
-                        <button type="button" onClick={() => { setEditingId(s.id); setForm({ nom: s.nom, description: s.description, etage: s.etage }); setShowForm(true); }}
+                        <button type="button" onClick={() => { setEditingId(s.id); setForm({ nom: s.nom, code: s.code, description: s.description || "" }); setShowForm(true); }}
                           className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold">
                           {langue === "fr" ? "Modifier" : "تعديل"}
                         </button>

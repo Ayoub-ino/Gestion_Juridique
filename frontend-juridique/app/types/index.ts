@@ -5,6 +5,7 @@ export type Langue = "fr" | "ar";
 export type VueActive =
   | "dashboard"
   | "mes-entites"
+  | "mes-dossiers-en-cours"
   | "transactions"
   | "archives"
   | "admin-listes"
@@ -15,6 +16,7 @@ export type VueActive =
   | "sortant-demande"
   | "admin-utilisateurs"
   | "admin-services"
+  | "admin-services-historiques"
   | "admin-permissions"
   | "admin-equipements"
   | "notifications"

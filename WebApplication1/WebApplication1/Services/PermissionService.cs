@@ -121,7 +121,10 @@ namespace WebApplication1.Services
             await _context.SaveChangesAsync();
         }
     }
+}
 
+namespace WebApplication1.Services
+{
     public class PermissionDto
     {
         public string Key { get; set; } = string.Empty;

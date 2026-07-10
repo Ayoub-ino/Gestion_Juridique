@@ -22,12 +22,15 @@ import { ProfilPage } from "@/app/components/pages/ProfilPage";
 import { WorkspaceModal } from "@/app/components/modals/WorkspaceModal";
 import { ImportMappingModal } from "@/app/components/modals/ImportMappingModal";
 import { ArchiveRetraitPage } from "@/app/components/pages/ArchiveRetraitPage";
+import { MesDossiersEnCoursView } from "@/app/components/pages/MesDossiersEnCoursView";
+
+import { GestionServicesHistoriques } from "@/app/components/admin/GestionServicesHistoriques";
 
 import { translations } from "@/lib/translations";
 import { normalizeStatus, getDocKey } from "@/lib/utils";
 import { SERVICE_GROUPS, getServiceLabel, getStatusLabel, USER_SERVICE_TO_ENUM, WORKFLOW_STEPS } from "@/lib/constants";
 import { useDocuments } from "@/app/hooks/useDocuments";
-import { exportRows, importFromFile, ExportFormat, ExportRow } from "@/lib/exportImport";
+import { exportRows, importFromFile, downloadExcelTemplate, ExportFormat, ExportRow, ImportResult } from "@/lib/exportImport";
 import { useListItems } from "@/app/hooks/useListItems";
 import { Langue, VueActive, CourrierSimule, LocalTransaction, LocalRetrait } from "@/app/types";
 
@@ -666,8 +669,6 @@ export default function Home() {
     } catch {}
   };
 
-  const [importModalOpen, setImportModalOpen] = useState(false);
-  const [importData, setImportData] = useState<ExportRow[]>([]);
   const [importFileName, setImportFileName] = useState("");
   const [importFile, setImportFile] = useState<File | null>(null);
   const quickImportRef = useRef<HTMLInputElement>(null);
@@ -676,110 +677,24 @@ export default function Home() {
   const [excelColumns, setExcelColumns] = useState<string[]>([]);
   const [mappedImportData, setMappedImportData] = useState<ExportRow[]>([]);
 
-  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const data = await importFromFile(file);
-      setImportData(data);
-      setImportFileName(file.name);
-      setImportFile(file);
-      setImportModalOpen(true);
-    } catch (err: any) {
-      alert(err.message || "Erreur d'importation");
-    }
-    e.target.value = "";
-  };
 
-  const confirmImport = async () => {
-    if (importData.length === 0) return;
-    let success = 0;
-    let errors = 0;
-    for (const row of importData) {
-      try {
-        const docType = (row["النوع"] || row["Type"] || row["type"] || "entrant-admin").toString().toLowerCase();
-        const ref = row["المرجع"] || row["Référence"] || row["Reference"] || row["ref"] || `IMP-${Date.now()}`;
-        const source = row["المصدر"] || row["Source"] || row["source"] || "";
-        const objet = row["العنوان"] || row["Titre"] || row["Objet"] || row["title"] || "";
-        const etat = row["الحالة"] || row["État"] || row["Etat"] || "";
-        const dateStr = row["التاريخ"] || row["Date"] || row["date"] || "";
-
-        let res;
-        if (docType.includes("juridique")) {
-          res = await fetch(`${BASE_URL}/api/CourrierJuridique`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              reference: String(ref),
-              objet: String(objet),
-              provenance: String(source),
-              demandeur: String(source),
-              etatGlobal: String(etat) || "En cours",
-              typeCircuit: "classique",
-              etapeService: 1,
-              numeroBureauOrdre: String(ref),
-            })
-          });
-        } else {
-          res = await fetch(`${BASE_URL}/api/CourrierAdmin`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              numeroOrdre: String(ref),
-              expediteur: String(source),
-              objet: String(objet),
-              transmissible: true,
-            })
-          });
-        }
-        if (res.ok) {
-          const data = await res.json();
-          const docId = data.courrier?.id || data.dossier?.id || data.id;
-          // Upload the original file once for the first doc only
-          if (docId && importFile && success === 0) {
-            const fd = new FormData();
-            fd.append("file", importFile);
-            await fetch(`${BASE_URL}/api/FileUpload/${docId}`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${token}` },
-              body: fd,
-            });
-          }
-          success++;
-        } else errors++;
-      } catch { errors++; }
-    }
-    alert(langue === "fr"
-      ? `Import terminé: ${success} succès, ${errors} erreurs`
-      : `تم الاستيراد: ${success} نجاح, ${errors} أخطاء`);
-    setImportModalOpen(false);
-    setImportData([]);
-    setImportFile(null);
-    await refetch();
-  };
 
   const handleImportExcelFile = async (file: File) => {
     if (!token) return;
     try {
-      const data = await importFromFile(file);
+      const result = await importFromFile(file);
+      const data = result.data;
       if (data.length === 0) {
         alert(langue === "fr" ? "Aucune donnée trouvée dans le fichier" : "لم يتم العثور على بيانات في الملف");
         return;
       }
-      // Detect columns from first row
-      const columns = Object.keys(data[0]);
-      if (columns.length > 2) {
-        setExcelColumns(columns);
-        setMappedImportData(data);
-        setImportFileName(file.name);
-        setImportFile(file);
-        setShowMappingModal(true);
-      } else {
-        setImportData(data);
-        setImportFileName(file.name);
-        setImportFile(file);
-        setImportModalOpen(true);
-      }
+      // Always show mapping modal for Excel files
+      const columns = result.columns;
+      setExcelColumns(columns.length > 0 ? columns : ["Colonne 1"]);
+      setMappedImportData(data);
+      setImportFileName(file.name);
+      setImportFile(file);
+      setShowMappingModal(true);
     } catch (err: any) {
       alert(err.message || "Erreur d'importation");
     }
@@ -789,28 +704,20 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file || !token) return;
     try {
-      const data = await importFromFile(file);
+      const result = await importFromFile(file);
+      const data = result.data;
       if (data.length === 0) {
         alert(langue === "fr" ? "Aucune donnée trouvée dans le fichier" : "لم يتم العثور على بيانات في الملف");
         e.target.value = "";
         return;
       }
-      // Detect columns from first row
-      const columns = Object.keys(data[0]);
-      if (columns.length > 2) {
-        // Show mapping modal for files with detectable column headers
-        setExcelColumns(columns);
-        setMappedImportData(data);
-        setImportFileName(file.name);
-        setImportFile(file);
-        setShowMappingModal(true);
-      } else {
-        // Fallback to direct import preview for simple files
-        setImportData(data);
-        setImportFileName(file.name);
-        setImportFile(file);
-        setImportModalOpen(true);
-      }
+      // Always show mapping modal for Excel files
+      const columns = result.columns;
+      setExcelColumns(columns.length > 0 ? columns : ["Colonne 1"]);
+      setMappedImportData(data);
+      setImportFileName(file.name);
+      setImportFile(file);
+      setShowMappingModal(true);
     } catch (err: any) {
       alert(err.message || "Erreur d'importation");
     }
@@ -821,75 +728,49 @@ export default function Home() {
     if (mappedImportData.length === 0) return;
 
     // Map each row using the column mapping
-    const mappedData: ExportRow[] = mappedImportData.map((row) => {
-      const mappedRow: ExportRow = {};
+    const mappedRows: Record<string, string>[] = mappedImportData.map((row) => {
+      const mappedRow: Record<string, string> = {};
       for (const [excelCol, dbField] of Object.entries(mapping)) {
         if (row[excelCol] !== undefined) {
-          mappedRow[dbField] = row[excelCol];
+          mappedRow[dbField] = String(row[excelCol] ?? "");
         }
       }
       return mappedRow;
     });
 
-    // Use the same import logic as confirmImport
-    let success = 0;
-    let errors = 0;
-    for (const row of mappedData) {
-      try {
-        const docType = (row["typeCircuit"] || row["type"] || "entrant-admin").toString().toLowerCase();
-        const ref = row["reference"] || `IMP-${Date.now()}`;
-        const source = row["source"] || row["expediteur"] || "";
-        const objet = row["objet"] || "";
-        const etat = row["statut"] || "";
-        const dateStr = row["date"] || "";
+    // Determine doc type from the mapping or data
+    const hasTypeField = mappedRows.some(r => r.typeCircuit);
+    const docType = hasTypeField && mappedRows.some(r => r.typeCircuit?.includes("juridique"))
+      ? "juridique"
+      : "admin";
 
-        let res;
-        if (docType.includes("juridique")) {
-          res = await fetch(`${BASE_URL}/api/CourrierJuridique`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              reference: String(ref),
-              objet: String(objet),
-              provenance: String(source),
-              demandeur: String(source),
-              etatGlobal: String(etat) || "En cours",
-              typeCircuit: "classique",
-              etapeService: 1,
-              numeroBureauOrdre: String(ref),
-            })
-          });
-        } else {
-          res = await fetch(`${BASE_URL}/api/CourrierAdmin`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              numeroOrdre: String(ref),
-              expediteur: String(source),
-              objet: String(objet),
-              transmissible: true,
-            })
-          });
-        }
-        if (res.ok) {
-          const data = await res.json();
-          const docId = data.courrier?.id || data.dossier?.id || data.id;
-          if (docId && importFile && success === 0) {
-            const fd = new FormData();
-            fd.append("file", importFile);
-            await fetch(`${BASE_URL}/api/FileUpload/${docId}`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${token}` },
-              body: fd,
-            });
-          }
-          success++;
-        } else errors++;
-      } catch { errors++; }
+    // Single POST to backend import endpoint
+    try {
+      const res = await fetch(`${BASE_URL}/api/ExcelImport`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          docType,
+          mapping,
+          rows: mappedRows,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        // Upload the original Excel file to the first created document
+        // (optional: skip if not needed)
+        alert(result.message || (langue === "fr"
+          ? `Import terminé: ${result.success} succès, ${result.errors} erreurs`
+          : `تم الاستيراد: ${result.success} نجاح, ${result.errors} أخطاء`));
+      } else {
+        alert(result.message || "Erreur lors de l'import / خطأ أثناء الاستيراد");
+      }
+    } catch (err: any) {
+      alert(err.message || "Erreur de connexion au serveur / خطأ في الاتصال بالخادم");
     }
-    alert(langue === "fr"
-      ? `Import terminé: ${success} succès, ${errors} erreurs`
-      : `تم الاستيراد: ${success} نجاح, ${errors} أخطاء`);
+
     setShowMappingModal(false);
     setMappedImportData([]);
     setExcelColumns([]);
@@ -1512,6 +1393,13 @@ export default function Home() {
                     }} className="px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100">
                       {selectedDocIds.length > 0 ? `export word (${selectedDocIds.length})` : "export word"}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadExcelTemplate(langue)}
+                      className="px-3 py-1.5 rounded-lg bg-teal-50 text-teal-700 text-[10px] font-bold border border-teal-200 hover:bg-teal-100 cursor-pointer flex items-center gap-1"
+                    >
+                      📋 {langue === "fr" ? "Télécharger modèle" : "تحميل النموذج"}
+                    </button>
                     <label className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[10px] font-bold border border-violet-700 hover:bg-violet-700 cursor-pointer flex items-center gap-1">
                       📥 {langue === "fr" ? "Import Excel" : "استيراد Excel"}
                       <input type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
@@ -1654,7 +1542,29 @@ export default function Home() {
             </div>
           )}
 
-          {vueActive === "transactions" && (
+      {vueActive === "mes-dossiers-en-cours" && (
+        <MesDossiersEnCoursView
+          langue={langue}
+          cur={cur}
+          token={token}
+          BASE_URL={BASE_URL}
+          userService={userService}
+          userId={user?.id}
+          visibleCourriers={visibleCourriers}
+          hasPermission={hasPermission}
+          selectedIds={selectedIds}
+          setSelectedIds={setSelectedIds}
+          toggleSelected={toggleSelected}
+          selectedDocument={selectedDocument}
+          setSelectedDocument={setSelectedDocument}
+          setShowModal={setShowModal}
+          openTransfer={openTransfer}
+          handleDelete={handleDelete}
+          getServiceLabel={getServiceLabel}
+        />
+      )}
+
+      {vueActive === "transactions" && (
             <TransactionsPage
               langue={langue}
               cur={cur}
@@ -1815,12 +1725,12 @@ export default function Home() {
                           ))
                         )}
                       </tbody>
-                    </table>
-                  </div>
+</table>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        )}
 
           {vueActive === "recherche-dossiers" && (() => {
             const s = searchTerm.toLowerCase().trim();
@@ -2233,6 +2143,10 @@ export default function Home() {
             <GestionEquipements langue={langue} cur={cur} token={token} BASE_URL={BASE_URL} onExport={(f) => exportAdminData(f, "equipements")} />
           )}
 
+          {vueActive === "admin-services-historiques" && isAdmin && (
+            <GestionServicesHistoriques langue={langue} cur={cur} token={token} BASE_URL={BASE_URL} />
+          )}
+
           {vueActive === "admin-listes" && canSeeAdminSection && (
             <GestionListes langue={langue} cur={cur} token={token} BASE_URL={BASE_URL} onExport={(f) => exportAdminData(f, "listes")} />
           )}
@@ -2272,6 +2186,7 @@ export default function Home() {
           onConfirm={confirmMappedImport}
           excelColumns={excelColumns}
           langue={langue}
+          previewData={mappedImportData}
         />
       )}
 
@@ -2336,55 +2251,6 @@ export default function Home() {
         </div>
       )}
 
-      {importModalOpen && (
-        <div className="fixed inset-0 z-[999] bg-black/40 flex items-center justify-center p-4" onClick={() => setImportModalOpen(false)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="font-bold text-sm text-slate-800">
-                {langue === "fr" ? `Importer depuis ${importFileName}` : `استيراد من ${importFileName}`} ({importData.length} {langue === "fr" ? "lignes" : "صفوف"})
-              </h3>
-              <button onClick={() => setImportModalOpen(false)} className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold">✕</button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              {importData.length === 0 ? (
-                <p className="text-center text-slate-400 text-xs font-bold py-8">{langue === "fr" ? "Aucune donnée détectée" : "لم يتم اكتشاف بيانات"}</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-slate-100">
-                      <tr>
-                        {Object.keys(importData[0]).map((h) => (
-                          <th key={h} className="p-2 text-start font-bold text-slate-700 border-b">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {importData.slice(0, 20).map((row, i) => (
-                        <tr key={i} className="border-b hover:bg-slate-50">
-                          {Object.keys(importData[0]).map((h) => (
-                            <td key={h} className="p-2 text-slate-600">{String(row[h] ?? "")}</td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {importData.length > 20 && (
-                    <p className="text-center text-slate-400 text-[10px] mt-2">... {importData.length - 20} {langue === "fr" ? "lignes supplémentaires" : "صفوف إضافية"}</p>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="p-4 border-t border-slate-200 flex justify-end gap-2">
-              <button onClick={() => setImportModalOpen(false)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold">
-                {cur.annuler}
-              </button>
-              <button onClick={confirmImport} disabled={importData.length === 0} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-40">
-                {langue === "fr" ? `Importer ${importData.length} ligne(s)` : `استيراد ${importData.length} صف(وف)`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Workspace Modal */}
       {workspaceDocId && (
         <WorkspaceModal

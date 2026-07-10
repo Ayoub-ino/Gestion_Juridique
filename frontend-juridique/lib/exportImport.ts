@@ -134,6 +134,38 @@ function exportWord(rows: ExportRow[], headers: string[], filename: string, titl
   }
 }
 
+export function downloadExcelTemplate(langue: "fr" | "ar" = "fr") {
+  const dateStr = getNowFR();
+  const hdr = buildHeaderLines();
+  
+  const templateHeaders = langue === "fr"
+    ? ["Titre / Objet", "Numéro de référence", "Type", "Date", "Source", "Service actuel", "Statut"]
+    : ["العنوان", "المرجع", "النوع", "التاريخ", "المصدر", "المصلحة", "الحالة"];
+
+  const wsData: any[][] = [
+    ...hdr.map((h) => [h]),
+    [],
+    [`Date : ${dateStr}   |   Enregistrements : 0`],
+    [],
+    templateHeaders,
+    // 10 empty rows for user to fill
+    ...Array.from({ length: 10 }, () => templateHeaders.map(() => "")),
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  ws["!cols"] = templateHeaders.map(() => ({ wch: 24 }));
+
+  const numCols = templateHeaders.length;
+  ws["!merges"] = hdr.map((_, i) => ({ s: { r: i, c: 0 }, e: { r: i, c: numCols - 1 } }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Modele");
+
+  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const name = langue === "fr" ? "Modele_Import_Excel.xlsx" : "نموذج_استيراد_Excel.xlsx";
+  downloadBuffer(wbout, name, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+}
+
 export function parseCSV(text: string): ExportRow[] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
@@ -180,7 +212,12 @@ function parseCSVLine(line: string, sep: string): string[] {
   return result;
 }
 
-export function importFromFile(file: File): Promise<ExportRow[]> {
+export interface ImportResult {
+  columns: string[];
+  data: ExportRow[];
+}
+
+export function importFromFile(file: File): Promise<ImportResult> {
   return new Promise((resolve, reject) => {
     const ext = file.name.split(".").pop()?.toLowerCase();
 
@@ -188,7 +225,9 @@ export function importFromFile(file: File): Promise<ExportRow[]> {
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target?.result as string;
-        resolve(parseCSV(text));
+        const rows = parseCSV(text);
+        const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+        resolve({ columns, data: rows });
       };
       reader.onerror = () => reject(new Error("Erreur de lecture / خطأ في القراءة"));
       reader.readAsText(file, "UTF-8");
@@ -199,50 +238,57 @@ export function importFromFile(file: File): Promise<ExportRow[]> {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const wb = XLSX.read(data, { type: "array" });
           const ws = wb.Sheets[wb.SheetNames[0]];
-
-          // Find the header row by looking for known column names
           const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
-          let headerRow = -1;
-          const knownHeaders = ["العنوان", "الموضوع", "Titre", "Objet", "المرجع", "Référence", "Reference"];
-          for (let r = range.s.r; r <= range.e.r; r++) {
-            for (let c = range.s.c; c <= range.e.c; c++) {
-              const cell = ws[XLSX.utils.encode_cell({ r, c })];
-              if (cell && cell.v) {
-                const val = String(cell.v).trim();
-                if (knownHeaders.some(h => val.includes(h))) {
-                  headerRow = r;
+
+          // Skip first 6 administrative rows (0-5), read headers from row 6 (7th row)
+          const HEADER_ROW_INDEX = 6; // 0-indexed = row 7 in the sheet
+          const DATA_START_INDEX = 7; // 0-indexed = row 8 in the sheet
+
+          // Read headers from row 7 (index 6)
+          const headers: string[] = [];
+          for (let c = range.s.c; c <= range.e.c; c++) {
+            const cell = ws[XLSX.utils.encode_cell({ r: HEADER_ROW_INDEX, c })];
+            const val = cell ? String(cell.v ?? "").trim() : "";
+            if (val) headers.push(val);
+          }
+
+          if (headers.length === 0) {
+            // Fallback: try to find headers by scanning rows 0-10
+            let foundRow = -1;
+            for (let r = 0; r <= Math.min(10, range.e.r); r++) {
+              for (let c = range.s.c; c <= range.e.c; c++) {
+                const cell = ws[XLSX.utils.encode_cell({ r, c })];
+                if (cell && cell.v && String(cell.v).trim().length > 1) {
+                  foundRow = r;
                   break;
                 }
               }
+              if (foundRow >= 0) break;
             }
-            if (headerRow >= 0) break;
+            if (foundRow >= 0) {
+              for (let c = range.s.c; c <= range.e.c; c++) {
+                const cell = ws[XLSX.utils.encode_cell({ r: foundRow, c })];
+                const val = cell ? String(cell.v ?? "").trim() : "";
+                if (val) headers.push(val);
+              }
+            }
           }
 
-          let jsonData: ExportRow[];
-          if (headerRow >= 0) {
-            // Parse from the found header row
-            const headers: string[] = [];
-            for (let c = range.s.c; c <= range.e.c; c++) {
-              const cell = ws[XLSX.utils.encode_cell({ r: headerRow, c })];
-              headers.push(cell ? String(cell.v).trim() : "");
+          // Read data rows starting from row 8 (index 7)
+          const jsonData: ExportRow[] = [];
+          for (let r = DATA_START_INDEX; r <= range.e.r; r++) {
+            const row: ExportRow = {};
+            let hasData = false;
+            for (let c = range.s.c; c < range.s.c + headers.length; c++) {
+              const cell = ws[XLSX.utils.encode_cell({ r, c })];
+              let val = cell ? String(cell.v ?? "").trim() : "";
+              if (val) hasData = true;
+              row[headers[c - range.s.c]] = val;
             }
-            jsonData = [];
-            for (let r = headerRow + 1; r <= range.e.r; r++) {
-              const row: ExportRow = {};
-              let hasData = false;
-              for (let c = range.s.c; c < range.s.c + headers.length; c++) {
-                const cell = ws[XLSX.utils.encode_cell({ r, c })];
-                const val = cell ? String(cell.v ?? "").trim() : "";
-                if (val) hasData = true;
-                row[headers[c - range.s.c]] = val;
-              }
-              if (hasData) jsonData.push(row);
-            }
-          } else {
-            // Fallback: standard parsing
-            jsonData = XLSX.utils.sheet_to_json(ws) as ExportRow[];
+            if (hasData) jsonData.push(row);
           }
-          resolve(jsonData);
+
+          resolve({ columns: headers, data: jsonData });
         } catch (err) {
           reject(new Error("Erreur de lecture Excel / خطأ في قراءة Excel"));
         }
@@ -256,14 +302,17 @@ export function importFromFile(file: File): Promise<ExportRow[]> {
           const arrayBuffer = e.target?.result as ArrayBuffer;
           const result = await mammoth.extractRawText({ arrayBuffer });
           const text = result.value;
-          if (!text.trim()) { resolve([]); return; }
+          if (!text.trim()) { resolve({ columns: [], data: [] }); return; }
           const lines = text.split(/\r?\n/).filter((l) => l.trim());
-          if (lines.length === 0) { resolve([]); return; }
+          if (lines.length === 0) { resolve({ columns: [], data: [] }); return; }
           const sep = lines[0].includes("\t") ? "\t" : lines[0].includes(";") ? ";" : lines[0].includes(",") ? "," : null;
           if (sep) {
-            resolve(parseCSV(lines.join("\n")));
+            const rows = parseCSV(lines.join("\n"));
+            const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+            resolve({ columns, data: rows });
           } else {
-            resolve(lines.map((line, i) => ({ Ligne: i + 1, Contenu: line.trim() })));
+            const rows = lines.map((line, i) => ({ Ligne: i + 1, Contenu: line.trim() }));
+            resolve({ columns: ["Ligne", "Contenu"], data: rows });
           }
         } catch (err) {
           reject(new Error("Erreur de lecture Word / خطأ في قراءة Word"));

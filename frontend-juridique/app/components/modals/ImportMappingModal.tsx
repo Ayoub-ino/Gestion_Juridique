@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Langue } from "@/app/types";
+import { ExportRow } from "@/lib/exportImport";
 
 const DB_FIELDS = [
   { value: "objet", fr: "Titre / Objet", ar: "الموضوع" },
@@ -79,6 +80,7 @@ interface ImportMappingModalProps {
   onConfirm: (mapping: Record<string, string>) => void;
   excelColumns: string[];
   langue: Langue;
+  previewData?: ExportRow[];
 }
 
 export function ImportMappingModal({
@@ -87,6 +89,7 @@ export function ImportMappingModal({
   onConfirm,
   excelColumns,
   langue,
+  previewData,
 }: ImportMappingModalProps) {
   // Initialise mapping with auto-match on mount / when columns change
   const initialMapping = useMemo(() => {
@@ -190,6 +193,53 @@ export function ImportMappingModal({
             </table>
           </div>
         </div>
+
+        {/* Preview */}
+        {previewData && previewData.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-200">
+            <h4 className="text-xs font-bold text-slate-600 mb-2">
+              {langue === "fr" ? "Aperçu des données" : "معاينة البيانات"}
+              <span className="font-normal text-slate-400 ml-2">
+                ({previewData.length} {langue === "fr" ? "lignes" : "صفوف"})
+              </span>
+            </h4>
+            <div className="max-h-32 overflow-y-auto rounded border border-slate-100">
+              <table className="w-full text-[10px]">
+                <thead>
+                  <tr className="bg-slate-50">
+                    {excelColumns.map((col) => {
+                      const mapped = mapping[col];
+                      return mapped && mapped !== IGNORE_VALUE ? (
+                        <th key={col} className="px-2 py-1 text-left font-bold text-blue-700 border-b">
+                          {col} → {mapped}
+                        </th>
+                      ) : (
+                        <th key={col} className="px-2 py-1 text-left font-bold text-slate-400 border-b line-through">
+                          {col}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.slice(0, 3).map((row, i) => (
+                    <tr key={i} className="border-b border-slate-50">
+                      {excelColumns.map((col) => {
+                        const mapped = mapping[col];
+                        const isIgnored = !mapped || mapped === IGNORE_VALUE;
+                        return (
+                          <td key={col} className={`px-2 py-1 ${isIgnored ? "text-slate-300 line-through" : "text-slate-600"}`}>
+                            {String(row[col] ?? "").substring(0, 30)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="p-5 border-t border-slate-200 flex justify-end gap-2">
