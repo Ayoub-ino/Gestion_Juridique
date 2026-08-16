@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Langue } from "@/app/types";
+import { api } from "@/lib/api/client";
 
 interface HistoricalService {
   id: number;
@@ -20,10 +21,9 @@ interface Props {
   langue: Langue;
   cur: any;
   token: string | null;
-  BASE_URL: string;
 }
 
-export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Props) {
+export function GestionServicesHistoriques({ langue, cur, token }: Props) {
   const [services, setServices] = useState<HistoricalService[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,10 +42,7 @@ export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Pro
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/historical-services`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setServices(await res.json());
+      setServices(await api.get<HistoricalService[]>("/api/historical-services", token));
     } catch (err) {
       console.error("Error fetching historical services:", err);
     }
@@ -64,39 +61,30 @@ export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Pro
     e.preventDefault();
     if (!token) return;
 
-    const url = editingId
-      ? `${BASE_URL}/api/historical-services/${editingId}`
-      : `${BASE_URL}/api/historical-services`;
-    const method = editingId ? "PUT" : "POST";
+    const body = {
+      nom: form.nom,
+      code: form.code,
+      description: form.description,
+      parentId: form.parentId ? parseInt(form.parentId) : null,
+      sortOrder: form.sortOrder,
+      isActive: form.isActive,
+    };
 
     try {
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          nom: form.nom,
-          code: form.code,
-          description: form.description,
-          parentId: form.parentId ? parseInt(form.parentId) : null,
-          sortOrder: form.sortOrder,
-          isActive: form.isActive,
-        }),
-      });
-
-      if (res.ok) {
-        alert(editingId
-          ? cur.serviceHistoriqueModifie
-          : cur.serviceHistoriqueCree);
-        setShowForm(false);
-        setEditingId(null);
-        setForm({ nom: "", code: "", description: "", parentId: "", sortOrder: 0, isActive: true });
-        fetchServices();
+      if (editingId) {
+        await api.put(`/api/historical-services/${editingId}`, body, token);
       } else {
-        const err = await res.json();
-        alert(err.error || "Erreur");
+        await api.post("/api/historical-services", body, token);
       }
-    } catch (err) {
-      console.error("Error saving historical service:", err);
+      alert(editingId
+        ? cur.serviceHistoriqueModifie
+        : cur.serviceHistoriqueCree);
+      setShowForm(false);
+      setEditingId(null);
+      setForm({ nom: "", code: "", description: "", parentId: "", sortOrder: 0, isActive: true });
+      fetchServices();
+    } catch (err: any) {
+      alert(err?.message || "Erreur");
     }
   };
 
@@ -105,13 +93,11 @@ export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Pro
     if (!confirm(cur.confirmerSuppression)) return;
 
     try {
-      const res = await fetch(`${BASE_URL}/api/historical-services/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) fetchServices();
-      else { const err = await res.json(); alert(err.error || "Erreur"); }
-    } catch (err) { console.error(err); }
+      await api.delete(`/api/historical-services/${id}`, token);
+      fetchServices();
+    } catch (err: any) {
+      alert(err?.message || "Erreur");
+    }
   };
 
   const handleEdit = (s: HistoricalService) => {

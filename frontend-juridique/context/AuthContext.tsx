@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { api, ApiError } from '@/lib/api/client';
 
 type User = {
   id: number;
@@ -43,20 +44,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (login: string, password: string) => {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5200'}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ Login: login, Password: password }),
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Échec de la connexion');
+    try {
+      const data = await api.post<{ token: string; user: User }>(
+        "/api/auth/login",
+        { Login: login, Password: password }
+      );
+      setToken(data.token);
+      setUser(data.user);
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+    } catch (err) {
+      if (err instanceof ApiError) {
+        throw new Error(err.message || 'Échec de la connexion');
+      }
+      throw new Error('Échec de la connexion');
     }
-    const data = await response.json();
-    setToken(data.token);
-    setUser(data.user);
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
   };
 
   const logout = () => {
@@ -96,19 +98,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Fetch admin overrides from API
   const fetchAdminOverrides = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5200'}/api/rbac/permissions/admin`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const data = await api.get<{ permissions: { Key: string; Enabled: boolean }[] }>(
+        "/api/rbac/permissions/admin",
+        token
+      );
+      const overridesMap: Record<string, boolean> = {};
+      data.permissions.forEach((perm) => {
+        if (!perm.Enabled) {
+          overridesMap[perm.Key] = false;
+        }
       });
-      if (response.ok) {
-        const data = await response.json();
-        const overridesMap: Record<string, boolean> = {};
-        data.permissions.forEach((perm: any) => {
-          if (!perm.Enabled) {
-            overridesMap[perm.Key] = false;
-          }
-        });
-        setAdminOverrides(overridesMap);
-      }
+      setAdminOverrides(overridesMap);
     } catch (error) {
       console.error('Error fetching admin overrides:', error);
     }

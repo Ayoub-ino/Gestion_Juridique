@@ -3,16 +3,16 @@
 import { useState, useEffect } from "react";
 import { Langue, RbacService } from "@/app/types";
 import { ExportFormat } from "@/lib/exportImport";
+import { api } from "@/lib/api/client";
 
 interface Props {
   langue: Langue;
   cur: any;
   token: string | null;
-  BASE_URL: string;
   onExport?: (format: ExportFormat) => void;
 }
 
-export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Props) {
+export function GestionServices({ langue, cur, token, onExport }: Props) {
   const [services, setServices] = useState<RbacService[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -21,10 +21,7 @@ export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Prop
 
   const fetchServices = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/rbac/services`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setServices(await res.json());
+      setServices(await api.get<RbacService[]>("/api/rbac/services", token));
     } catch (err) { console.error("Erreur fetch services:", err); }
   };
 
@@ -40,19 +37,10 @@ export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Prop
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editingId ? `${BASE_URL}/api/rbac/services/${editingId}` : `${BASE_URL}/api/rbac/services`;
-      const method = editingId ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(form),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || (langue === "fr" ? "Erreur" : "خطأ"));
-        return;
+      if (editingId) {
+        await api.put(`/api/rbac/services/${editingId}`, form, token);
+      } else {
+        await api.post("/api/rbac/services", form, token);
       }
 
       alert(editingId ? (langue === "fr" ? "Service modifié" : "تم تعديل المصلحة") : (langue === "fr" ? "Service créé" : "تم إنشاء المصلحة"));
@@ -61,17 +49,14 @@ export function GestionServices({ langue, cur, token, BASE_URL, onExport }: Prop
       setForm({ nom: "", code: "", description: "" });
       fetchServices();
     } catch (err: any) {
-      alert((langue === "fr" ? "Erreur: " : "خطأ: ") + err.message);
+      alert(err?.message || (langue === "fr" ? "Erreur" : "خطأ"));
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm(langue === "fr" ? "Supprimer ce service ?" : "هل تريد حذف هذه المصلحة؟")) return;
     try {
-      await fetch(`${BASE_URL}/api/rbac/services/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/api/rbac/services/${id}`, token);
       fetchServices();
     } catch (err) { console.error(err); }
   };

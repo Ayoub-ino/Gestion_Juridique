@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { Langue } from "@/app/types";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
+import { api } from "@/lib/api/client";
 
 interface Props {
   langue: Langue;
   cur: any;
   token: string | null;
-  BASE_URL: string;
   user: any;
 }
 
@@ -21,7 +21,7 @@ interface SubstituteEntry {
   isActive: boolean;
 }
 
-export function ProfilPage({ langue, cur, token, BASE_URL, user }: Props) {
+export function ProfilPage({ langue, cur, token, user }: Props) {
   const [substitutes, setSubstitutes] = useState<SubstituteEntry[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [selectedSubstitute, setSelectedSubstitute] = useState<number | 0>(0);
@@ -29,22 +29,14 @@ export function ProfilPage({ langue, cur, token, BASE_URL, user }: Props) {
   const fetchSubstitutes = async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Substitutes/history/${user.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setSubstitutes(await res.json());
+      setSubstitutes(await api.get<SubstituteEntry[]>(`/api/Substitutes/history/${user.id}`, token));
     } catch (err) { console.error(err); }
   };
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/Users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAllUsers(data.filter((u: any) => u.id !== user?.id));
-      }
+      const data = await api.get<{ id: number; nom: string; service: string }[]>("/api/Users", token);
+      setAllUsers(data.filter((u) => u.id !== user?.id));
     } catch (err) { console.error(err); }
   };
 
@@ -56,11 +48,7 @@ export function ProfilPage({ langue, cur, token, BASE_URL, user }: Props) {
       return;
     }
     try {
-      await fetch(`${BASE_URL}/api/Substitutes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ userId: user.id, substituteUserId: selectedSubstitute }),
-      });
+      await api.post("/api/Substitutes", { userId: user.id, substituteUserId: selectedSubstitute }, token);
       alert(langue === "fr" ? "Remplaçant enregistré" : "تم حفظ البديل");
       fetchSubstitutes();
     } catch (err) { console.error(err); }
@@ -68,10 +56,7 @@ export function ProfilPage({ langue, cur, token, BASE_URL, user }: Props) {
 
   const handleCancelSubstitute = async (id: number) => {
     try {
-      await fetch(`${BASE_URL}/api/Substitutes/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/api/Substitutes/${id}`, token);
       fetchSubstitutes();
     } catch (err) { console.error(err); }
   };

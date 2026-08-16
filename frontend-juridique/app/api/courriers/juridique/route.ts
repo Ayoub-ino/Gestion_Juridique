@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5200";
+import { API_BASE_URL } from "@/lib/config/env";
 
 async function proxyToBackend(request: NextRequest) {
   const headers: HeadersInit = {};
@@ -10,7 +9,7 @@ async function proxyToBackend(request: NextRequest) {
   if (authorization) headers.Authorization = authorization;
   if (contentType) headers["Content-Type"] = contentType;
 
-  const response = await fetch(`${BACKEND_URL}/api/courriers/juridique`, {
+  const response = await fetch(`${API_BASE_URL}/api/courriers/juridique`, {
     method: request.method,
     headers,
     body: request.method === "GET" ? undefined : await request.text(),

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { CourrierSimule, Langue } from "@/app/types";
 import { SERVICE_GROUPS, PARENT_CHILDREN, getChildrenOf, isParentService } from "@/lib/constants";
+import { api } from "@/lib/api/client";
 
 interface TransferModalProps {
   doc: CourrierSimule | null;
@@ -39,7 +40,6 @@ export function TransferModal({
   if (!doc) return null;
 
   const { token } = useAuth();
-  const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5200";
   const [serviceUsers, setServiceUsers] = useState<{ id: number; nom: string }[]>([]);
 
   // When selected services change, fetch users for each selected service
@@ -53,17 +53,20 @@ export function TransferModal({
       try {
         // Fetch users for all selected services in parallel
         const promises = selectedServices.map(async (svc) => {
-          const res = await fetch(`${BASE_URL}/api/Users/by-service/${encodeURIComponent(svc)}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) return await res.json();
-          return [];
+          try {
+            return await api.get<{ id: number; nom: string }[]>(
+              `/api/Users/by-service/${encodeURIComponent(svc)}`,
+              token
+            );
+          } catch {
+            return [];
+          }
         });
         const results = await Promise.all(promises);
         // Merge and deduplicate by user ID
         const allUsers = results.flat();
         const seen = new Set<number>();
-        const unique = allUsers.filter((u: any) => {
+        const unique = allUsers.filter((u) => {
           if (seen.has(u.id)) return false;
           seen.add(u.id);
           return true;
@@ -74,7 +77,7 @@ export function TransferModal({
       }
     };
     fetchUsers();
-  }, [selectedServices, token, BASE_URL]);
+  }, [selectedServices, token]);
 
   const allChildValues = SERVICE_GROUPS.flatMap(g => g.children.map(c => c.value));
 

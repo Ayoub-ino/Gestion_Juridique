@@ -5,12 +5,12 @@ import { Langue } from "@/app/types";
 import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
 import { ExportFormat } from "@/lib/exportImport";
+import { api } from "@/lib/api/client";
 
 interface Props {
   langue: Langue;
   cur: any;
   token: string | null;
-  BASE_URL: string;
   onExport?: (format: ExportFormat) => void;
 }
 
@@ -28,7 +28,7 @@ interface NotificationData {
   sourceUserName?: string;
 }
 
-export function NotificationsPage({ langue, cur, token, BASE_URL, onExport }: Props) {
+export function NotificationsPage({ langue, cur, token, onExport }: Props) {
   const { hasPermission } = useAuth();
   const canAccept = hasPermission("accepter");
   const canRefuse = hasPermission("refuser");
@@ -40,13 +40,7 @@ export function NotificationsPage({ langue, cur, token, BASE_URL, onExport }: Pr
   const fetchNotifications = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Transactions/pending`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data);
-      }
+      setNotifications(await api.get<NotificationData[]>("/api/Transactions/pending", token));
     } catch (err) {
       console.error("Erreur fetch notifications:", err);
     }
@@ -70,11 +64,7 @@ export function NotificationsPage({ langue, cur, token, BASE_URL, onExport }: Pr
   const handleAccept = async (id: number) => {
     if (!canAccept) { alert(cur.permissionRefusee); return; }
     try {
-      await fetch(`${BASE_URL}/api/Transactions/${id}/accepter`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ commentaire: commentaires[id] || "" }),
-      });
+      await api.put(`/api/Transactions/${id}/accepter`, { commentaire: commentaires[id] || "" }, token);
       fetchNotifications();
     } catch (err) { console.error(err); }
   };
@@ -87,11 +77,7 @@ export function NotificationsPage({ langue, cur, token, BASE_URL, onExport }: Pr
       return;
     }
     try {
-      await fetch(`${BASE_URL}/api/Transactions/${id}/refuser`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ commentaire: motif, doitRevenir: !!retours[id] }),
-      });
+      await api.put(`/api/Transactions/${id}/refuser`, { commentaire: motif, doitRevenir: !!retours[id] }, token);
       fetchNotifications();
     } catch (err) { console.error(err); }
   };

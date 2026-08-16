@@ -330,3 +330,80 @@
 | 2026-08-04 ~22:00 | MODIFIED | `frontend-juridique/package.json` | Script `dev` : `next dev` → `next dev --webpack` ; nouveau script `dev:turbo` (`next dev`) conservé pour expérimentation | Panic Turbopack récurrent (stack `Next.js package not found` → `Failed to write app endpoint /page`) — connu sur les dossiers OneDrive/synchronisés ; le bundler webpack est stable (vérifié : 0 FATAL, HTTP 200) |
 | 2026-08-04 ~22:00 | CONFIGURED | `frontend-juridique/.next` | Cache `.next` supprimé avant le redémarrage | Éliminer tout cache natif Turbopack corrompu |
 | 2026-08-04 ~22:02 | CONFIGURED | Frontend | `npm run dev` (webpack) → **Ready in 725ms, 2× HTTP 200, 0 FATAL, 0 erreur** | Valider le correctif |
+
+---
+
+## 🏗️ Session K — Refactoring architectural complet (Phases 1→6) (2026-08-16)
+
+### Phase 1 — Nettoyage à comportement identique
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-16 | ADDED | `WebApplication1/WebApplication1/Middleware/PermissionValidationMiddleware.cs` | `PermissionValidationMiddleware` extrait de `Program.cs` vers son propre fichier (namespace `WebApplication1.Middleware`) | Architecture : la classe middleware n'a rien à faire dans le point d'entrée |
+| 2026-08-16 | MODIFIED | `WebApplication1/WebApplication1/Program.cs` | Classe middleware supprimée du fichier + `using WebApplication1.Middleware` | Même raison — composition root allégé |
+| 2026-08-16 | MODIFIED | `Security/RequirePermissionAttribute.cs` | Doc-comment mis à jour (référence `Middleware/PermissionValidationMiddleware.cs`) | Référence cassée après déplacement |
+| 2026-08-16 | MODIFIED | `frontend-juridique/components/LoginPage.tsx` | Déplacé → `app/components/pages/LoginPage.tsx` (git mv) ; import mis à jour dans `page.tsx` | Un seul root de composants (`app/components/`) — convention d'import uniforme |
+| 2026-08-16 | DELETED | `frontend-juridique/prisma/` | Dossier + `schema.prisma` supprimés ; `@prisma/client` + `prisma` retirés de `package.json`/lockfile | Dépendance morte (le frontend appelle l'API .NET en fetch direct) |
+| 2026-08-16 | ADDED | `frontend-juridique/lib/config/env.ts` | `API_BASE_URL` — source unique de l'URL backend | Supprime les 6 fallbacks `NEXT_PUBLIC_API_URL || localhost:5200` dupliqués |
+| 2026-08-16 | ADDED | `frontend-juridique/lib/api/client.ts` | Wrapper `fetch` typé central : `api.get/post/put/patch/delete/send`, header Bearer automatique, `ApiError` (status + message), gestion FormData | Couche API unique : auth header, erreurs et types en un seul endroit |
+
+### Phase 2 — Adoption du client API dans tous les fichiers feuilles
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-16 | MODIFIED | `context/AuthContext.tsx` | `login` + `fetchAdminOverrides` → `api.post`/`api.get` ; prop `BASE_URL` supprimée | Couche API centralisée |
+| 2026-08-16 | MODIFIED | `app/hooks/useDocuments.ts`, `app/hooks/useListItems.ts` | Fetches → `api.get` (avec `fetchOne` par endpoint préservant le comportement 401/indépendance) | Idem |
+| 2026-08-16 | MODIFIED | `TransferModal`, `WorkspaceModal`, `DetailModal`, `NotificationsPage`, `TransactionsPage`, `ProfilPage`, `ArchiveRetraitPage`, `MesDossiersEnCoursView` | Tous les `fetch` → `api.*` ; props `BASE_URL` supprimées des interfaces et call-sites | Idem |
+| 2026-08-16 | MODIFIED | `GestionUtilisateurs`, `GestionPermissions`, `GestionServices`, `GestionEquipements`, `GestionListes`, `GestionServicesHistoriques` | Idem + gestion d'erreur `ApiError` (401/403 → message spécifique) | Idem |
+| 2026-08-16 | MODIFIED | `app/api/courriers/juridique/route.ts` | `BACKEND_URL` local → `API_BASE_URL` importé de `lib/config/env` | Source unique de vérité |
+| 2026-08-16 | MODIFIED | `lib/api/client.ts` | Méthode `patch` ajoutée | Requis par `RetraitController` (PATCH annuler/retourner) |
+
+### Phase 3 — Découpage de `page.tsx` (2226 → ~1740 lignes)
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-16 | ADDED | `app/components/pages/MesEntitesView.tsx` | Vue « mes entités » extraite (tableau + sélection + exports + import + retour) | God component : chaque vue devient un composant dédié |
+| 2026-08-16 | ADDED | `app/components/pages/ArchivesView.tsx` | Vue archives + corbeille extraite | Idem |
+| 2026-08-16 | ADDED | `app/components/pages/RechercheDossiersView.tsx` | Vue recherche (filtres + résultats + fichiers locaux) extraite | Idem |
+| 2026-08-16 | MODIFIED | `app/page.tsx` | 3 blocs JSX remplacés par les composants ; handlers `openRetournerModal` + `batchTransferSelected` ajoutés au shell ; **les 24 fetches restants migrés vers `api.*`** (count-pending, stats, corbeille, restaurer, exports, ExcelImport, création courriers, upload FormData, Transfer, archive-batch, statut sortant, delete) | Shell mince + zéro `fetch` brut + zéro constante `BASE_URL` locale |
+| 2026-08-16 | MODIFIED | `app/page.tsx` | États `any[]` typés : `historiqueActions`, `retournerDocs`, `corbeilleDocs` (+ interfaces `TransactionHistoryEntry`, `RetournerDoc`, `CorbeilleDoc`) | Kill des `any` |
+
+### Phase 4 — Couche service backend
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-16 | ADDED | `Services/ServiceResult.cs` | Type `ServiceResult` (Success/StatusCode/Data + `Ok`/`Fail`) | Contrôleurs fins : mapper ServiceResult → IActionResult |
+| 2026-08-16 | ADDED | `Services/TransactionService.cs` | Toute la logique Transactions extraite (pending, all, accepter, refuser, annuler-transition, stats, stats-by-service, count-pending, doit-revenir, history) | TransactionsController : 430 → ~120 lignes ; logique testable |
+| 2026-08-16 | ADDED | `Services/WorkspaceService.cs` | Logique Workspace extraite (détail document, mise à jour + audit `DocumentModification`, notes CRUD, historique modifications, résolution user) | WorkspaceController : 367 → ~100 lignes |
+| 2026-08-16 | ADDED | `DTO/UpdateDocumentDto.cs`, `DTO/AddNoteDto.cs` | DTOs déplacés du contrôleur vers le dossier DTO | Règles de séparation des concerns |
+| 2026-08-16 | MODIFIED | `Controllers/TransactionsController.cs`, `Controllers/WorkspaceController.cs` | Réécrits en adaptateurs fins (parse → service → mapper résultat) | Idem |
+| 2026-08-16 | MODIFIED | `Program.cs` | `TransactionService` + `WorkspaceService` enregistrés en DI | Résolution des nouveaux services |
+| 2026-08-16 | MODIFIED | `WebApplication1.csproj` | `<InternalsVisibleTo Include="WebApplication1.Tests" />` | Accès des tests aux formes anonymes (RuntimeBinderException sinon) |
+| 2026-08-16 | ADDED | `WebApplication1.Tests/TransactionServiceTests.cs` (5 tests), `WorkspaceServiceTests.cs` (5 tests) | Couverture des nouveaux services (filtrage par service, doit-revenir, refus cross-service 403, annulation chaîne, stats, audit de modification, notes) | Tests unitaires de la couche service |
+| 2026-08-16 | MODIFIED | `PermissionValidationMiddlewareTests.cs` | `using WebApplication1.Middleware` ajouté | Namespace déplacé |
+
+### Phase 5 — OpenAPI + types générés
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-16 | ADDED | `lib/types/api.generated.ts` | Types TS générés depuis `/openapi/v1.json` via `openapi-typescript` (3 574 lignes — paths + schémas DTO) | Contrat unique backend→frontend ; les DTOs (UpdateDocumentDto, AddNoteDto, SortantDto…) sont désormais typés |
+| 2026-08-16 | MODIFIED | `package.json` | DevDep `openapi-typescript` + script `npm run typegen` | Régénération après changement de contrat backend |
+| 2026-08-16 | MODIFIED | `WorkspaceModal.tsx` | Body du PUT document typé `Partial<components["schemas"]["UpdateDocumentDto"]>` | Exemple d'usage des types générés |
+| 2026-08-16 | MODIFIED | `app/page.tsx` | États locaux typés (voir Phase 3) | Kill des `any` |
+
+### Phase 6 — Durcissement config
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-16 | MODIFIED | `appsettings.json` | Clé JWT **retirée** du fichier partagé ; section `Cors:AllowedOrigins` ajoutée | Secret hors config versionnée ; CORS configurable |
+| 2026-08-16 | MODIFIED | `appsettings.Development.json` | Clé JWT de développement ajoutée (override prod via `Jwt__Key` env var) | Le dev continue de fonctionner ; la prod doit fournir la clé |
+| 2026-08-16 | MODIFIED | `Program.cs` | CORS : origines lues depuis `Cors:AllowedOrigins` (défaut `localhost:3000`) | Config au lieu de hardcode |
+
+### Vérifications finales (Session K)
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-16 | CONFIGURED | Backend | `dotnet build` → Build succeeded ; `dotnet test` → **29/29 passés** (19 existants + 10 nouveaux) | Valider le refactoring backend |
+| 2026-08-16 | CONFIGURED | Frontend | `npx tsc --noEmit` → 0 erreur ; `npx next build` → succès (3 routes) | Valider le refactoring frontend |
+| 2026-08-16 | CONFIGURED | E2E | `npx cypress run` → **35/35 passés** (serveurs :5200 + :3000, DB LocalDB déjà seedée) | Validation de bout en bout du refactoring complet |
+| 2026-08-16 | DOCUMENTED | `docs/architecture-audit.md` | Rapport d'audit réécrit : état actuel + architecture cible | Reflet de la nouvelle architecture |

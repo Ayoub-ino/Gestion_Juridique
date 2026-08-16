@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { Langue } from "@/app/types";
 import { ExportFormat } from "@/lib/exportImport";
+import { api } from "@/lib/api/client";
 
 interface Props {
   langue: Langue;
   cur: any;
   token: string | null;
-  BASE_URL: string;
   onExport?: (format: ExportFormat) => void;
 }
 
@@ -34,7 +34,7 @@ const LIST_CATEGORIES = [
   { key: "sources_doc_lie", fr: "Sources de documents liés", ar: "مصادر الوثائق المرتبطة" },
 ];
 
-export function GestionListes({ langue, cur, token, BASE_URL, onExport }: Props) {
+export function GestionListes({ langue, cur, token, onExport }: Props) {
   const [items, setItems] = useState<ListItemData[]>([]);
   const [activeCategory, setActiveCategory] = useState("types_equipement");
   const [searchTerm, setSearchTerm] = useState("");
@@ -44,10 +44,7 @@ export function GestionListes({ langue, cur, token, BASE_URL, onExport }: Props)
 
   const fetchItems = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/ListItems?listName=${activeCategory}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setItems(await res.json());
+      setItems(await api.get<ListItemData[]>(`/api/ListItems?listName=${activeCategory}`, token));
     } catch (err) { console.error("Erreur fetch list items:", err); }
   };
 
@@ -60,20 +57,11 @@ export function GestionListes({ langue, cur, token, BASE_URL, onExport }: Props)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editingId ? `${BASE_URL}/api/ListItems/${editingId}` : `${BASE_URL}/api/ListItems`;
-      const method = editingId ? "PUT" : "POST";
       const body = { ...form, listName: activeCategory };
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || (langue === "fr" ? "Erreur" : "خطأ"));
-        return;
+      if (editingId) {
+        await api.put(`/api/ListItems/${editingId}`, body, token);
+      } else {
+        await api.post("/api/ListItems", body, token);
       }
 
       alert(editingId ? (langue === "fr" ? "Élément modifié" : "تم تعديل العنصر") : (langue === "fr" ? "Élément créé" : "تم إنشاء العنصر"));
@@ -82,28 +70,21 @@ export function GestionListes({ langue, cur, token, BASE_URL, onExport }: Props)
       setForm({ code: "", valueFr: "", valueAr: "", displayOrder: 1, isActive: true });
       fetchItems();
     } catch (err: any) {
-      alert((langue === "fr" ? "Erreur: " : "خطأ: ") + err.message);
+      alert(err?.message || (langue === "fr" ? "Erreur" : "خطأ"));
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm(langue === "fr" ? "Supprimer cet élément ?" : "هل تريد حذف هذا العنصر؟")) return;
     try {
-      await fetch(`${BASE_URL}/api/ListItems/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/api/ListItems/${id}`, token);
       fetchItems();
     } catch (err) { console.error(err); }
   };
 
   const toggleActive = async (item: ListItemData) => {
     try {
-      await fetch(`${BASE_URL}/api/ListItems/${item.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...item, isActive: !item.isActive }),
-      });
+      await api.put(`/api/ListItems/${item.id}`, { ...item, isActive: !item.isActive }, token);
       fetchItems();
     } catch (err) { console.error(err); }
   };

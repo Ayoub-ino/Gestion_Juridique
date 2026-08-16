@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using WebApplication1.Data;
+using WebApplication1.Middleware;
 using WebApplication1.Models;
 using WebApplication1.Security;
 using WebApplication1.Services;
@@ -36,12 +37,16 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// CORS origins are configurable (appsettings Cors:AllowedOrigins or env Cors__AllowedOrigins__0).
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:3000" };
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp",
         policy =>
         {
-            policy.WithOrigins("http://localhost:3000")
+            policy.WithOrigins(allowedOrigins)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -62,6 +67,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<WebApplication1.Services.PermissionService>();
 builder.Services.AddScoped<WebApplication1.Services.PermissionValidationService>();
 builder.Services.AddScoped<WebApplication1.Services.SeederService>();
+builder.Services.AddScoped<WebApplication1.Services.TransactionService>();
+builder.Services.AddScoped<WebApplication1.Services.WorkspaceService>();
 
 var app = builder.Build();
 
@@ -107,48 +114,3 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
-
-public class PermissionValidationMiddleware
-{
-    private readonly RequestDelegate _next;
-
-    public PermissionValidationMiddleware(RequestDelegate next)
-    {
-        _next = next;
-    }
-
-    public async Task InvokeAsync(HttpContext context)
-    {
-        // Read the [RequirePermission(...)] attribute from the matched endpoint metadata.
-        // This replaces the old client-supplied ?permission= query string check,
-        // which could be bypassed by simply omitting the query parameter.
-        var endpoint = context.GetEndpoint();
-        var permissionAttribute = endpoint?.Metadata.GetMetadata<RequirePermissionAttribute>();
-
-        if (permissionAttribute != null)
-        {
-            var userIdStr = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out var userId))
-            {
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsJsonAsync(new { error = "Non authentifié" });
-                return;
-            }
-
-            // Resolve from the request-scoped provider: the middleware instance itself
-            // is constructed once with the ROOT provider, so resolving a scoped service
-            // from the captured provider would throw (captive dependency).
-            var permissionValidationService = context.RequestServices.GetRequiredService<PermissionValidationService>();
-            var result = await permissionValidationService.ValidatePermissionAsync(userId, permissionAttribute.Permission, context);
-
-            if (!result.IsAllowed)
-            {
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = result.Reason });
-                return;
-            }
-        }
-
-        await _next(context);
-    }
-}

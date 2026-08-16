@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { CourrierSimule } from "@/app/types";
 import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, getRoleLabel, WORKFLOW_STEPS, getWorkflowProgress, getDelayDays } from "@/lib/constants";
+import { api } from "@/lib/api/client";
+import { API_BASE_URL } from "@/lib/config/env";
 
 interface DetailModalProps {
   doc: CourrierSimule | null;
@@ -14,7 +16,6 @@ interface DetailModalProps {
   cur: any;
   langue?: "fr" | "ar";
   token?: string | null;
-  BASE_URL?: string;
 }
 
 interface HistoryEntry {
@@ -58,10 +59,11 @@ interface DocDetails {
   NumeroEnvoi?: string;
   EtatGlobal?: string;
   Circuit?: string;
+  AutoriteRetrait?: string;
   transactions?: any[];
 }
 
-export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur, langue = "fr", token, BASE_URL }: DetailModalProps) {
+export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur, langue = "fr", token }: DetailModalProps) {
   const { hasPermission } = useAuth();
   const canAddNotes = hasPermission("ajouter_notes");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -86,31 +88,26 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
   };
 
   const fetchDocDetails = async () => {
-    if (!doc || !token || !BASE_URL) return;
+    if (!doc || !token) return;
     setLoadingDoc(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/Workspace/document/${doc.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const data = await api.get<DocDetails>(`/api/Workspace/document/${doc.id}`, token);
+      setDocDetails(data);
+      setEditedFields({
+        NumeroOrdre: data.NumeroOrdre || "",
+        Objet: data.Objet || "",
+        Sujet: data.Sujet || "",
+        Expediteur: data.Expediteur || "",
+        Demandeur: data.Demandeur || "",
+        DestinataireExterne: data.DestinataireExterne || "",
+        TribunalOrigine: data.TribunalOrigine || "",
+        TribunalDestination: data.TribunalDestination || "",
+        TypeCircuit: data.TypeCircuit || "",
+        MotifException: data.MotifException || "",
+        EtatGlobal: data.EtatGlobal || "",
+        Circuit: data.Circuit || "",
+        AutoriteRetrait: data.AutoriteRetrait || "",
       });
-      if (res.ok) {
-        const data = await res.json();
-        setDocDetails(data);
-        setEditedFields({
-          NumeroOrdre: data.NumeroOrdre || "",
-          Objet: data.Objet || "",
-          Sujet: data.Sujet || "",
-          Expediteur: data.Expediteur || "",
-          Demandeur: data.Demandeur || "",
-          DestinataireExterne: data.DestinataireExterne || "",
-          TribunalOrigine: data.TribunalOrigine || "",
-          TribunalDestination: data.TribunalDestination || "",
-          TypeCircuit: data.TypeCircuit || "",
-          MotifException: data.MotifException || "",
-          EtatGlobal: data.EtatGlobal || "",
-          Circuit: data.Circuit || "",
-          AutoriteRetrait: data.AutoriteRetrait || "",
-        });
-      }
     } catch (err) {
       console.error("Erreur fetch doc:", err);
     } finally {
@@ -119,13 +116,10 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
   };
 
   const fetchHistory = async () => {
-    if (!doc || !token || !BASE_URL) return;
+    if (!doc || !token) return;
     setLoadingHistory(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/Transactions/history/${doc.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setHistory(await res.json());
+      setHistory(await api.get<HistoryEntry[]>(`/api/Transactions/history/${doc.id}`, token));
     } catch (err) {
       console.error("Erreur fetch history:", err);
     } finally {
@@ -145,29 +139,23 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
   }, [doc?.id, token]);
 
   useEffect(() => {
-    if (!showPreview || !docDetails?.filePath || !BASE_URL) {
+    if (!showPreview || !docDetails?.filePath) {
       return;
     }
     // Word/Excel/PDF all use backend preview endpoint now
     // No client-side conversion needed
-  }, [showPreview, docDetails?.filePath, BASE_URL]);
+  }, [showPreview, docDetails?.filePath]);
 
   const handleSave = async () => {
-    if (!doc || !token || !BASE_URL) return;
+    if (!doc || !token) return;
     setSaving(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/Workspace/document/${doc.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(editedFields),
-      });
-      if (res.ok) {
-        setSuccessMsg(cur.enregistreSucces);
-        setEditMode(false);
-        fetchDocDetails();
-        if (onSaved) onSaved();
-        setTimeout(() => setSuccessMsg(""), 3000);
-      }
+      await api.put(`/api/Workspace/document/${doc.id}`, editedFields, token);
+      setSuccessMsg(cur.enregistreSucces);
+      setEditMode(false);
+      fetchDocDetails();
+      if (onSaved) onSaved();
+      setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
       console.error("Erreur save:", err);
     } finally {
@@ -177,19 +165,13 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
 
   const handleSaveNote = async () => {
     if (!canAddNotes) { alert(cur.permissionRefusee); return; }
-    if (!doc || !token || !BASE_URL || !note.trim()) return;
+    if (!doc || !token || !note.trim()) return;
     setSavingNote(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/Workspace/document/${doc.id}/notes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ contenu: note.trim() }),
-      });
-      if (res.ok) {
-        setNote("");
-        setSuccessMsg(cur.noteAjoutee);
-        setTimeout(() => setSuccessMsg(""), 3000);
-      }
+      await api.post(`/api/Workspace/document/${doc.id}/notes`, { contenu: note.trim() }, token);
+      setNote("");
+      setSuccessMsg(cur.noteAjoutee);
+      setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
       console.error("Erreur note:", err);
     } finally {
@@ -368,7 +350,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                         {showPreview ? (cur.fermer) : (cur.btnVoir)}
                       </button>
                       <a
-                        href={`${BASE_URL}/api/FileUpload/${docDetails.filePath}`}
+                        href={`${API_BASE_URL}/api/FileUpload/${docDetails.filePath}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold hover:bg-amber-100 transition"
@@ -380,21 +362,21 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                       <div className="border border-slate-200 dark:border-slate-600 rounded-lg overflow-hidden">
                         {docDetails.filePath.endsWith(".pdf") && (
                           <iframe
-                            src={`${BASE_URL}/api/FileUpload/${docDetails.filePath}`}
+                            src={`${API_BASE_URL}/api/FileUpload/${docDetails.filePath}`}
                             className="w-full h-[500px]"
                             title="Preview PDF"
                           />
                         )}
                         {(docDetails.filePath.endsWith(".docx") || docDetails.filePath.endsWith(".doc")) && (
                           <iframe
-                            src={`${BASE_URL}/api/FileUpload/preview/${docDetails.filePath}`}
+                            src={`${API_BASE_URL}/api/FileUpload/preview/${docDetails.filePath}`}
                             className="w-full h-[500px]"
                             title="Preview Word"
                           />
                         )}
                         {(docDetails.filePath.endsWith(".xlsx") || docDetails.filePath.endsWith(".xls")) && (
                           <iframe
-                            src={`${BASE_URL}/api/FileUpload/preview/${docDetails.filePath}`}
+                            src={`${API_BASE_URL}/api/FileUpload/preview/${docDetails.filePath}`}
                             className="w-full h-[500px]"
                             title="Preview Excel"
                           />

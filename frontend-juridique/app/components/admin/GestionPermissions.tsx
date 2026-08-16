@@ -3,12 +3,12 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import { Langue, RbacService, Permission, ServicePermission } from "@/app/types";
+import { api } from "@/lib/api/client";
 
 interface Props {
   langue: Langue;
   cur: any;
   token: string | null;
-  BASE_URL: string;
 }
 
 interface MatrixData {
@@ -24,7 +24,7 @@ interface AdminPerm {
   enabled: boolean;
 }
 
-export function GestionPermissions({ langue, cur, token, BASE_URL }: Props) {
+export function GestionPermissions({ langue, cur, token }: Props) {
   const [matrix, setMatrix] = useState<MatrixData | null>(null);
   const [services, setServices] = useState<RbacService[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
@@ -42,13 +42,7 @@ export function GestionPermissions({ langue, cur, token, BASE_URL }: Props) {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/rbac/permissions/matrix`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMatrix(data);
-      }
+      setMatrix(await api.get<MatrixData>("/api/rbac/permissions/matrix", token));
     } catch (err) {
       console.error("Error fetching matrix:", err);
     }
@@ -58,13 +52,7 @@ export function GestionPermissions({ langue, cur, token, BASE_URL }: Props) {
   const fetchServices = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/rbac/services`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setServices(data);
-      }
+      setServices(await api.get<RbacService[]>("/api/rbac/services", token));
     } catch (err) {
       console.error("Error fetching services:", err);
     }
@@ -73,13 +61,8 @@ export function GestionPermissions({ langue, cur, token, BASE_URL }: Props) {
   const fetchAdminPermissions = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/rbac/permissions/admin`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAdminPermissions(data.permissions || []);
-      }
+      const data = await api.get<{ permissions: AdminPerm[] }>("/api/rbac/permissions/admin", token);
+      setAdminPermissions(data.permissions || []);
     } catch (err) {
       console.error("Error fetching admin permissions:", err);
     }
@@ -89,13 +72,8 @@ export function GestionPermissions({ langue, cur, token, BASE_URL }: Props) {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/rbac/permissions/service/${serviceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setServicePerms(data.permissions);
-      }
+      const data = await api.get<{ permissions: ServicePermission[] }>(`/api/rbac/permissions/service/${serviceId}`, token);
+      setServicePerms(data.permissions);
     } catch (err) {
       console.error("Error fetching service permissions:", err);
     }
@@ -130,27 +108,17 @@ export function GestionPermissions({ langue, cur, token, BASE_URL }: Props) {
     if (!token || !selectedServiceId) return;
     setSaving(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/rbac/permissions/service/${selectedServiceId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          permissions: servicePerms.map(p => ({ permissionKey: p.key, enabled: p.enabled })),
-        }),
-      });
-      if (res.ok) {
-        alert(langue === "fr" ? "Permissions sauvegardées" : "تم حفظ الصلاحيات");
-        setView("matrix");
-        setSelectedServiceId(null);
-        fetchMatrix();
-      } else {
-        const err = await res.json();
-        alert(err.error || "Erreur");
-      }
-    } catch (err) {
-      console.error("Error saving permissions:", err);
+      await api.put(
+        `/api/rbac/permissions/service/${selectedServiceId}`,
+        { permissions: servicePerms.map(p => ({ permissionKey: p.key, enabled: p.enabled })) },
+        token
+      );
+      alert(langue === "fr" ? "Permissions sauvegardées" : "تم حفظ الصلاحيات");
+      setView("matrix");
+      setSelectedServiceId(null);
+      fetchMatrix();
+    } catch (err: any) {
+      alert(err?.message || "Erreur");
     }
     setSaving(false);
   };
@@ -159,29 +127,19 @@ export function GestionPermissions({ langue, cur, token, BASE_URL }: Props) {
     if (!token) return;
     setSaving(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/rbac/permissions/admin`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          permissions: adminEditPerms.map(p => ({ permissionKey: p.key, enabled: p.enabled })),
-        }),
-      });
-      if (res.ok) {
-        alert(langue === "fr" ? "Permissions administrateur sauvegardées" : "تم حفظ صلاحيات المدير");
-        setView("matrix");
-        setIsEditingAdmin(false);
-        setSelectedServiceId(null);
-        fetchMatrix();
-        fetchAdminPermissions();
-      } else {
-        const err = await res.json();
-        alert(err.error || "Erreur");
-      }
-    } catch (err) {
-      console.error("Error saving admin permissions:", err);
+      await api.put(
+        "/api/rbac/permissions/admin",
+        { permissions: adminEditPerms.map(p => ({ permissionKey: p.key, enabled: p.enabled })) },
+        token
+      );
+      alert(langue === "fr" ? "Permissions administrateur sauvegardées" : "تم حفظ صلاحيات المدير");
+      setView("matrix");
+      setIsEditingAdmin(false);
+      setSelectedServiceId(null);
+      fetchMatrix();
+      fetchAdminPermissions();
+    } catch (err: any) {
+      alert(err?.message || "Erreur");
     }
     setSaving(false);
   };

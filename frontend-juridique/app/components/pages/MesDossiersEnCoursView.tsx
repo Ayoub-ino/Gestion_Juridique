@@ -8,7 +8,6 @@ interface Props {
   langue: Langue;
   cur: any;
   token: string | null;
-  BASE_URL: string;
   userService: string;
   userId: number | undefined;
   visibleCourriers: any[];
@@ -25,7 +24,7 @@ interface Props {
 }
 
 export function MesDossiersEnCoursView({ 
-  langue, cur, token, BASE_URL, userService, userId, visibleCourriers, hasPermission,
+  langue, cur, token, userService, userId, visibleCourriers, hasPermission,
   selectedIds, setSelectedIds, toggleSelected, selectedDocument, setSelectedDocument, setShowModal,
   openTransfer, handleDelete, getServiceLabel
 }: Props) {

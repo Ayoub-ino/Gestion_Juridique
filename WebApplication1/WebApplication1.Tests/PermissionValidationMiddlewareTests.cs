@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
 using WebApplication1.Data;
+using WebApplication1.Middleware;
 using WebApplication1.Models;
 using WebApplication1.Security;
 using WebApplication1.Services;
