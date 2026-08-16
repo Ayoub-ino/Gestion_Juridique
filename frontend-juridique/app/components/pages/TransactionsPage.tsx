@@ -5,12 +5,12 @@ import { Langue } from "@/app/types";
 import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
 import { exportRows, ExportFormat } from "@/lib/exportImport";
+import { api } from "@/lib/api/client";
 
 interface Props {
   langue: Langue;
   cur: any;
   token: string | null;
-  BASE_URL: string;
   onAccepted?: () => void;
   isAdmin?: boolean;
 }
@@ -29,7 +29,7 @@ interface TransactionData {
   motifRefus?: string;
 }
 
-export function TransactionsPage({ langue, cur, token, BASE_URL, onAccepted, isAdmin }: Props) {
+export function TransactionsPage({ langue, cur, token, onAccepted, isAdmin }: Props) {
   const { hasPermission } = useAuth();
   const canAccept = hasPermission("accepter");
   const canRefuse = hasPermission("refuser");
@@ -42,10 +42,7 @@ export function TransactionsPage({ langue, cur, token, BASE_URL, onAccepted, isA
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/Transactions/all`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setTransactions(await res.json());
+      setTransactions(await api.get<TransactionData[]>("/api/Transactions/all", token));
     } catch (err) {
       console.error("Erreur fetch transactions:", err);
     } finally {
@@ -84,15 +81,9 @@ export function TransactionsPage({ langue, cur, token, BASE_URL, onAccepted, isA
     if (!canAccept) { alert(cur.permissionRefusee); return; }
     if (!token) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Transactions/${id}/accepter`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ commentaire: commentaires[id] || "" }),
-      });
-      if (res.ok) {
-        fetchTransactions();
-        onAccepted?.();
-      }
+      await api.put(`/api/Transactions/${id}/accepter`, { commentaire: commentaires[id] || "" }, token);
+      fetchTransactions();
+      onAccepted?.();
     } catch (err) { console.error(err); }
   };
 
@@ -105,15 +96,9 @@ export function TransactionsPage({ langue, cur, token, BASE_URL, onAccepted, isA
       return;
     }
     try {
-      const res = await fetch(`${BASE_URL}/api/Transactions/${id}/refuser`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ commentaire: motif, doitRevenir: !!retours[id] }),
-      });
-      if (res.ok) {
-        fetchTransactions();
-        onAccepted?.();
-      }
+      await api.put(`/api/Transactions/${id}/refuser`, { commentaire: motif, doitRevenir: !!retours[id] }, token);
+      fetchTransactions();
+      onAccepted?.();
     } catch (err) { console.error(err); }
   };
 
@@ -126,15 +111,10 @@ export function TransactionsPage({ langue, cur, token, BASE_URL, onAccepted, isA
     );
     if (!confirmed) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Transactions/${id}/annuler-transition`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        alert(langue === "fr" ? "Transaction annulée avec succès" : "تم إلغاء المعاملة بنجاح");
-        fetchTransactions();
-        onAccepted?.();
-      }
+      await api.put(`/api/Transactions/${id}/annuler-transition`, {}, token);
+      alert(langue === "fr" ? "Transaction annulée avec succès" : "تم إلغاء المعاملة بنجاح");
+      fetchTransactions();
+      onAccepted?.();
     } catch (err) { console.error(err); }
   };
 

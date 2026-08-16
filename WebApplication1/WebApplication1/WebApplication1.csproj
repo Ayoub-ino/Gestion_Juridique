@@ -27,4 +27,9 @@
     <Folder Include="Core\Entities\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Lets the test project inspect anonymous DTO shapes returned by services. -->
+    <InternalsVisibleTo Include="WebApplication1.Tests" />
+  </ItemGroup>
+
 </Project>

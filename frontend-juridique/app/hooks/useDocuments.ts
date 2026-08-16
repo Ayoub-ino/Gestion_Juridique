@@ -5,8 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { CourrierSimule, VueActive, Langue } from "@/app/types";
 import { getServiceLabel, getStatusLabel } from "@/lib/constants";
 import { translations } from "@/lib/translations";
-
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5200";
+import { api, ApiError } from "@/lib/api/client";
 
 export function useDocuments(token: string | null, langue: Langue, vueActive: VueActive) {
   const cur = translations[langue];
@@ -24,17 +23,25 @@ export function useDocuments(token: string | null, langue: Langue, vueActive: Vu
     setError(null);
 
     try {
-      // Appel parallèle aux trois endpoints avec les bonnes routes
+      // Fetch each endpoint individually so a failing endpoint (e.g. 403) does not
+      // break the others — the original behavior when one response was non-ok.
+      const fetchOne = async (path: string): Promise<{ ok: boolean; data?: any; status?: number }> => {
+        try {
+          return { ok: true, data: await api.get(path, token) };
+        } catch (err: any) {
+          if (err instanceof ApiError && err.status === 401) {
+            logout();
+            return { ok: false, status: 401 };
+          }
+          console.warn(`GET ${path}: ${err?.status || err?.message}`);
+          return { ok: false, status: err?.status || 0 };
+        }
+      };
+
       const [adminRes, juridiqueRes, sortantRes] = await Promise.all([
-        fetch(`${BASE_URL}/api/CourrierAdmin`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${BASE_URL}/api/CourrierJuridique`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${BASE_URL}/api/CourrierSortant`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        fetchOne("/api/CourrierAdmin"),
+        fetchOne("/api/CourrierJuridique"),
+        fetchOne("/api/CourrierSortant"),
       ]);
 
       // Tableau pour rassembler tous les documents
@@ -42,7 +49,7 @@ export function useDocuments(token: string | null, langue: Langue, vueActive: Vu
 
       // ---- ADMIN ----
       if (adminRes.ok) {
-        const data = await adminRes.json();
+        const data = adminRes.data ?? [];
         const formatted = data.map((c: any) => ({
           id: c.id,
           reference: c.numeroOrdre || c.reference || cur.na,
@@ -63,12 +70,12 @@ export function useDocuments(token: string | null, langue: Langue, vueActive: Vu
         logout();
         return;
       } else {
-        console.warn(`Admin: ${adminRes.status} - ${adminRes.statusText}`);
+        console.warn(`Admin: ${adminRes.status}`);
       }
 
       // ---- JURIDIQUE (route corrigée) ----
       if (juridiqueRes.ok) {
-        const data = await juridiqueRes.json();
+        const data = juridiqueRes.data ?? [];
         const formatted = data.map((c: any) => ({
           id: c.id,
           reference: c.numeroReference || c.reference || cur.na,
@@ -89,12 +96,12 @@ export function useDocuments(token: string | null, langue: Langue, vueActive: Vu
         logout();
         return;
       } else {
-        console.warn(`Juridique: ${juridiqueRes.status} - ${juridiqueRes.statusText}`);
+        console.warn(`Juridique: ${juridiqueRes.status}`);
       }
 
       // ---- SORTANT ----
       if (sortantRes.ok) {
-        const data = await sortantRes.json();
+        const data = sortantRes.data ?? [];
         const formatted = data.map((c: any) => {
           let statutBrut = c.statutActuel || "Nouveau";
           if (statutBrut === "Nouveau") statutBrut = "Brouillon";
@@ -123,7 +130,7 @@ export function useDocuments(token: string | null, langue: Langue, vueActive: Vu
         logout();
         return;
       } else {
-        console.warn(`Sortant: ${sortantRes.status} - ${sortantRes.statusText}`);
+        console.warn(`Sortant: ${sortantRes.status}`);
       }
 
       // Si aucune donnée n'a été récupérée, on garde un tableau vide

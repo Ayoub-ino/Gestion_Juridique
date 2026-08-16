@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api/client";
 
 interface Retrait {
   id: number;
@@ -20,7 +21,6 @@ interface ArchiveRetraitPageProps {
   langue: "fr" | "ar";
   cur: any;
   token: string | null;
-  BASE_URL: string;
   selectedDoc: { id: number; reference: string; objet: string } | null;
   onClose: () => void;
   userNom: string;
@@ -30,7 +30,6 @@ export function ArchiveRetraitPage({
   langue,
   cur,
   token,
-  BASE_URL,
   selectedDoc,
   onClose,
   userNom,
@@ -48,13 +47,7 @@ export function ArchiveRetraitPage({
   const fetchRetraits = async () => {
     if (!selectedDoc || !token) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Retrait/document/${selectedDoc.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setRetraits(data);
-      }
+      setRetraits(await api.get<Retrait[]>(`/api/Retrait/document/${selectedDoc.id}`, token));
     } catch {}
   };
 
@@ -71,10 +64,9 @@ export function ArchiveRetraitPage({
     }
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/Retrait`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
+      await api.post(
+        "/api/Retrait",
+        {
           documentId: selectedDoc.id,
           reference: selectedDoc.reference,
           effectuePar,
@@ -83,18 +75,15 @@ export function ArchiveRetraitPage({
           dateRetrait: dateRetrait || new Date().toISOString(),
           dateRetour: dateRetour || null,
           serviceArchives: userNom,
-        }),
-      });
-      if (res.ok) {
-        alert(langue === "fr" ? "Retrait enregistré" : "تم تسجيل الإخراج");
-        setMotifRetrait("");
-        setNotes("");
-        setDateRetour("");
-        setDateRetrait(new Date().toISOString().split("T")[0]);
-        fetchRetraits();
-      } else {
-        alert(langue === "fr" ? "Erreur lors de l'enregistrement" : "خطأ في التسجيل");
-      }
+        },
+        token
+      );
+      alert(langue === "fr" ? "Retrait enregistré" : "تم تسجيل الإخراج");
+      setMotifRetrait("");
+      setNotes("");
+      setDateRetour("");
+      setDateRetrait(new Date().toISOString().split("T")[0]);
+      fetchRetraits();
     } catch {
       alert(langue === "fr" ? "Erreur serveur" : "خطأ في الخادم");
     }
@@ -106,14 +95,9 @@ export function ArchiveRetraitPage({
     const msg = langue === "fr" ? "Annuler ce retrait ?" : "هل تريد إلغاء هذا الإخراج ?";
     if (!confirm(msg)) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Retrait/${id}/annuler`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        alert(langue === "fr" ? "Retrait annulé" : "تم الإلغاء");
-        fetchRetraits();
-      }
+      await api.patch(`/api/Retrait/${id}/annuler`, undefined, token);
+      alert(langue === "fr" ? "Retrait annulé" : "تم الإلغاء");
+      fetchRetraits();
     } catch {
       alert(langue === "fr" ? "Erreur lors de l'annulation du retrait" : "خطأ في إلغاء الإخراج");
     }
@@ -122,14 +106,9 @@ export function ArchiveRetraitPage({
   const handleRetourner = async (id: number) => {
     if (!token) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Retrait/${id}/retourner`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        alert(langue === "fr" ? "Document retourné" : "تم إرجاع الوثيقة");
-        fetchRetraits();
-      }
+      await api.patch(`/api/Retrait/${id}/retourner`, undefined, token);
+      alert(langue === "fr" ? "Document retourné" : "تم إرجاع الوثيقة");
+      fetchRetraits();
     } catch {
       alert(langue === "fr" ? "Erreur lors du retour du document" : "خطأ في إرجاع الوثيقة");
     }

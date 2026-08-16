@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { api } from "@/lib/api/client";
 
 export interface ListItem {
   id: number;
@@ -12,8 +13,6 @@ export interface ListItem {
   isActive: boolean;
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5200";
-
 export function useListItems(token: string | null, listName?: string) {
   const [items, setItems] = useState<ListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,14 +20,11 @@ export function useListItems(token: string | null, listName?: string) {
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    const url = listName
-      ? `${BASE_URL}/api/ListItems?listName=${listName}`
-      : `${BASE_URL}/api/ListItems`;
-    fetch(url, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then((r) => r.json())
-      .then((data) => setItems(data.filter((i: ListItem) => i.isActive)))
+    const path = listName
+      ? `/api/ListItems?listName=${listName}`
+      : `/api/ListItems`;
+    api.get<ListItem[]>(path, token)
+      .then((data) => setItems(data.filter((i) => i.isActive)))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   }, [token, listName]);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
-import LoginPage from "@/components/LoginPage";
+import LoginPage from "@/app/components/pages/LoginPage";
 
 import { Sidebar } from "@/app/components/layout/Sidebar";
 import { DashboardView } from "@/app/components/dashboard/DashboardView";
@@ -26,13 +26,50 @@ import { MesDossiersEnCoursView } from "@/app/components/pages/MesDossiersEnCour
 
 import { GestionServicesHistoriques } from "@/app/components/admin/GestionServicesHistoriques";
 
+import { MesEntitesView } from "@/app/components/pages/MesEntitesView";
+import { ArchivesView } from "@/app/components/pages/ArchivesView";
+import { RechercheDossiersView } from "@/app/components/pages/RechercheDossiersView";
+
 import { translations } from "@/lib/translations";
 import { normalizeStatus, getDocKey } from "@/lib/utils";
 import { getServiceLabel, getStatusLabel, USER_SERVICE_TO_ENUM, WORKFLOW_STEPS } from "@/lib/constants";
 import { useDocuments } from "@/app/hooks/useDocuments";
 import { exportRows, importFromFile, downloadExcelTemplate, ExportFormat, ExportRow } from "@/lib/exportImport";
 import { useListItems } from "@/app/hooks/useListItems";
+import { api, ApiError } from "@/lib/api/client";
 import { Langue, VueActive, CourrierSimule, LocalRetrait } from "@/app/types";
+
+// API payload shapes for the shell's local lists (mirror backend projections).
+interface TransactionHistoryEntry {
+  id: number;
+  serviceOrigine: string;
+  serviceDestination: string;
+  date: string;
+  remarques?: string;
+  statut: string;
+  commentaire?: string;
+  motifRefus?: string;
+  doitRevenir?: boolean;
+}
+
+interface RetournerDoc {
+  id: number;
+  documentId: number;
+  documentSujet: string;
+  sourceServiceId: string;
+  destinationServiceId: string;
+  message?: string;
+  statut: string;
+  dateEnvoi: string;
+  doitRevenir: boolean;
+}
+
+interface CorbeilleDoc {
+  id: number;
+  reference: string;
+  objet: string;
+  serviceActuel: string;
+}
 
 export default function Home() {
   const { user, token, isAuthenticated, logout, hasPermission } = useAuth();
@@ -103,7 +140,7 @@ export default function Home() {
   const [selectedDocument, setSelectedDocument] = useState<CourrierSimule | null>(null);
   const [workflowDocId, setWorkflowDocId] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [historiqueActions, setHistoriqueActions] = useState<any[]>([]);
+  const [historiqueActions, setHistoriqueActions] = useState<TransactionHistoryEntry[]>([]);
   const [hiddenDocKeys, setHiddenDocKeys] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [docOverrides, setDocOverrides] = useState<Record<number, Partial<CourrierSimule>>>({});
@@ -117,10 +154,10 @@ export default function Home() {
   const [transactionStats, setTransactionStats] = useState({ total: 0, acceptes: 0, refuses: 0, enAttente: 0, pourcentage: 0 });
   const [localRetraits, setLocalRetraits] = useState<LocalRetrait[]>([]);
   const [showRetournerModal, setShowRetournerModal] = useState(false);
-  const [retournerDocs, setRetournerDocs] = useState<any[]>([]);
+  const [retournerDocs, setRetournerDocs] = useState<RetournerDoc[]>([]);
   const [filtreStatutSortant, setFiltreStatutSortant] = useState("tous");
   const [showCorbeille, setShowCorbeille] = useState(false);
-  const [corbeilleDocs, setCorbeilleDocs] = useState<any[]>([]);
+  const [corbeilleDocs, setCorbeilleDocs] = useState<CorbeilleDoc[]>([]);
   const [localFiles, setLocalFiles] = useState<{ name: string; content: string; path: string }[]>([]);
   const [searchLocalFiles, setSearchLocalFiles] = useState(false);
   const [retraitDoc, setRetraitDoc] = useState<{ id: number; reference: string; objet: string } | null>(null);
@@ -130,25 +167,14 @@ export default function Home() {
   const [workspaceDocId, setWorkspaceDocId] = useState<number | null>(null);
 
   const { listeCourriers, refetch } = useDocuments(token, langue, vueActive);
-  const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5200";
 
   const fetchPending = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Transactions/count-pending`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPendingNotifications(data.count || 0);
-      }
-      const statsRes = await fetch(`${BASE_URL}/api/Transactions/stats`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setTransactionStats(statsData);
-      }
+      const data = await api.get<{ count: number }>("/api/Transactions/count-pending", token);
+      setPendingNotifications(data.count || 0);
+      const statsData = await api.get<typeof transactionStats>("/api/Transactions/stats", token);
+      setTransactionStats(statsData);
     } catch (err) { console.error("Fetch pending error:", err); alert(cur.erreurChargement); }
   };
 
@@ -460,33 +486,19 @@ export default function Home() {
   const fetchCorbeille = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Documents/corbeille`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCorbeilleDocs(data);
-      }
+      setCorbeilleDocs(await api.get("/api/Documents/corbeille", token));
     } catch (err) { console.error("Fetch corbeille error:", err); alert(cur.erreurChargement); }
   };
 
   const restoreDocument = async (id: number) => {
     if (!token) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Documents/${id}/restaurer`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const err = await res.text();
-        alert(`${cur.erreurRestauration}: ${err}`);
-        return;
-      }
+      await api.patch(`/api/Documents/${id}/restaurer`, undefined, token);
       await fetchCorbeille();
       await refetch();
       alert(cur.documentRestauré);
     } catch (e: any) {
-      alert(`${cur.erreurRestauration}: ${e.message}`);
+      alert(`${cur.erreurRestauration}: ${e?.message || ""}`);
     }
   };
 
@@ -627,20 +639,18 @@ export default function Home() {
     if (!token) return;
     try {
       let url = "";
-      if (type === "utilisateurs") url = `${BASE_URL}/api/Auth/users`;
-      else if (type === "services") url = `${BASE_URL}/api/Services`;
-      else if (type === "equipements") url = `${BASE_URL}/api/Equipment`;
-      else if (type === "listes") url = `${BASE_URL}/api/ListItem`;
-      else if (type === "notifications") url = `${BASE_URL}/api/Transactions`;
+      if (type === "utilisateurs") url = "/api/Auth/users";
+      else if (type === "services") url = "/api/Services";
+      else if (type === "equipements") url = "/api/Equipment";
+      else if (type === "listes") url = "/api/ListItem";
+      else if (type === "notifications") url = "/api/Transactions";
       if (!url) return;
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await api.get<unknown[]>(url, token);
       if (!Array.isArray(data) || data.length === 0) {
         alert(cur.aucuneDonneeExport);
         return;
       }
-      const rows = data.map((item: any) => {
+      const rows = (data as any[]).map((item: any) => {
         const row: Record<string, string> = {};
         Object.keys(item).forEach((key) => {
           if (key !== "id" && key !== "password" && key !== "token") {
@@ -658,16 +668,12 @@ export default function Home() {
   const exportNotifications = async (format: ExportFormat) => {
     if (!token) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Transactions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await api.get<unknown[]>("/api/Transactions", token);
       if (!Array.isArray(data) || data.length === 0) {
         alert(cur.aucuneDonneeExport);
         return;
       }
-      const rows = data.map((t: any) => ({
+      const rows = (data as any[]).map((t: any) => ({
         [cur.tblType]: t.documentSujet || "",
         [cur.tblSource]: t.sourceServiceName || t.sourceServiceId || "",
         [cur.tblDest]: t.destinationServiceName || t.destinationServiceId || "",
@@ -757,29 +763,17 @@ export default function Home() {
 
     // Single POST to backend import endpoint
     try {
-      const res = await fetch(`${BASE_URL}/api/ExcelImport`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          docType,
-          mapping,
-          rows: mappedRows,
-        }),
-      });
+      const result = await api.post<{ message?: string; success?: number; errors?: number }>(
+        "/api/ExcelImport",
+        { docType, mapping, rows: mappedRows },
+        token
+      );
 
-      const result = await res.json();
-
-      if (res.ok) {
-        // Upload the original Excel file to the first created document
-        // (optional: skip if not needed)
-        alert(result.message || (langue === "fr"
-          ? `Import terminé: ${result.success} succès, ${result.errors} erreurs`
-          : `تم الاستيراد: ${result.success} نجاح, ${result.errors} أخطاء`));
-      } else {
-        alert(result.message || "Erreur lors de l'import / خطأ أثناء الاستيراد");
-      }
+      alert(result.message || (langue === "fr"
+        ? `Import terminé: ${result.success} succès, ${result.errors} erreurs`
+        : `تم الاستيراد: ${result.success} نجاح, ${result.errors} أخطاء`));
     } catch (err: any) {
-      alert(err.message || "Erreur de connexion au serveur / خطأ في الاتصال بالخادم");
+      alert(err?.message || "Erreur lors de l'import / خطأ أثناء الاستيراد");
     }
 
     setShowMappingModal(false);
@@ -812,7 +806,7 @@ export default function Home() {
           setIsSubmitting(false);
           return;
         }
-        endpoint = `${BASE_URL}/api/CourrierAdmin`;
+        endpoint = "/api/CourrierAdmin";
         body = {
           numeroOrdre: numeroOrdreFinal,
           expediteur: tiers,
@@ -834,7 +828,7 @@ export default function Home() {
           fichier: fichier ? fichier.name : null
         };
       } else if (vueActive === "entrant-juridique") {
-        endpoint = `${BASE_URL}/api/CourrierJuridique`;
+        endpoint = "/api/CourrierJuridique";
         body = {
           reference: numeroOrdreFinal,
           objet: objet,
@@ -857,7 +851,7 @@ export default function Home() {
           dateAudience: dateAudience,
         };
       } else if (vueActive === "sortant-normal" || vueActive === "sortant-demande") {
-        endpoint = `${BASE_URL}/api/CourrierSortant`;
+        endpoint = "/api/CourrierSortant";
         body = {
           destinataire: tiers,
           reference: numeroOrdreFinal,
@@ -881,30 +875,7 @@ export default function Home() {
         return;
       }
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      const contentType = res.headers.get("content-type");
-      if (!res.ok) {
-        let errorMsg = `Erreur ${res.status}`;
-        if (contentType && contentType.includes("application/json")) {
-          const data = await res.json();
-          errorMsg = data.error || data.message || errorMsg;
-        } else {
-          const text = await res.text();
-          console.error("Réponse non-JSON:", text);
-          errorMsg = "Erreur serveur (voir console)";
-        }
-        throw new Error(errorMsg);
-      }
-
-      const data = await res.json();
+      const data = await api.post<any>(endpoint, body, token);
       const docId = data.courrier?.id || data.dossier?.id || data.sortant?.id || data.id;
 
       // Upload file if one was selected
@@ -913,15 +884,7 @@ export default function Home() {
         const fd = new FormData();
         fd.append("file", currentFile);
         try {
-          const uploadRes = await fetch(`${BASE_URL}/api/FileUpload/${docId}`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-            body: fd,
-          });
-          if (!uploadRes.ok) {
-            const errText = await uploadRes.text();
-            console.error("Upload failed:", uploadRes.status, errText);
-          }
+          await api.send(`/api/FileUpload/${docId}`, "POST", fd, token);
         } catch (uploadErr) {
           console.error("Upload error:", uploadErr);
           alert(cur.erreurBackend);
@@ -1041,25 +1004,21 @@ export default function Home() {
     for (const doc of docsToProcess) {
       for (const svc of servicesToTransfer) {
         try {
-          const res = await fetch(`${BASE_URL}/api/Transfer`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
+          await api.post(
+            "/api/Transfer",
+            {
               documentId: doc.id,
               documentType: doc.type,
               serviceDestination: svc,
               message: transferMessage || null,
               doitRevenir: transferMustReturn,
               targetUserId: transferTargetUserId || null,
-            }),
-          });
-
-          if (res.ok) {
-            successCount++;
-          } else if (res.status === 401) {
+            },
+            token
+          );
+          successCount++;
+        } catch (err: any) {
+          if (err instanceof ApiError && err.status === 401) {
             alert(cur.sessionExpiree);
             logout();
             setTransferModalDoc(null);
@@ -1068,16 +1027,10 @@ export default function Home() {
             setTransferMessage("");
             setTransferTargetUserId(null);
             return;
-          } else {
-            failCount++;
-            const errBody = await res.text();
-            console.error(`Transfer ${doc.reference} to ${svc} failed [${res.status}]:`, errBody);
-            lastError = `(${svc}: ${res.status})`;
           }
-        } catch (err: any) {
           failCount++;
           console.error(`Transfer ${doc.reference} to ${svc} error:`, err);
-          lastError = err.message || " réseau";
+          lastError = `(${svc}: ${err?.status || err?.message || "réseau"})`;
         }
       }
     }
@@ -1128,11 +1081,7 @@ export default function Home() {
     setDocOverrides((current) => ({ ...current, ...updates }));
     if (token && selectedIds.length > 0) {
       try {
-        await fetch(`${BASE_URL}/api/Documents/archive-batch`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ ids: selectedIds }),
-        });
+        await api.post("/api/Documents/archive-batch", { ids: selectedIds }, token);
         await refetch();
       } catch (err) {
         console.warn("Archivage local uniquement:", err);
@@ -1149,14 +1098,7 @@ export default function Home() {
     }));
     if (!token) return;
     try {
-      await fetch(`${BASE_URL}/api/CourrierSortant/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ statut: nouveauStatut }),
-      });
+      await api.put(`/api/CourrierSortant/${id}`, { statut: nouveauStatut }, token);
       await refetch();
     } catch (err) {
       console.warn("Statut appliqué localement, backend inaccessible:", err);
@@ -1172,10 +1114,10 @@ export default function Home() {
     if (!confirm(confirmMsg)) return;
 
     const endpoint = doc.type === "entrant-juridique"
-      ? `${BASE_URL}/api/CourrierJuridique/${doc.id}`
+      ? `/api/CourrierJuridique/${doc.id}`
       : doc.type === "sortant-normal" || doc.type === "sortant-demande"
-        ? `${BASE_URL}/api/CourrierSortant/${doc.id}`
-        : `${BASE_URL}/api/CourrierAdmin/${doc.id}`;
+        ? `/api/CourrierSortant/${doc.id}`
+        : `/api/CourrierAdmin/${doc.id}`;
 
     if (!token) {
       alert(cur.connecterSuppression);
@@ -1183,28 +1125,46 @@ export default function Home() {
     }
 
     try {
-      const res = await fetch(endpoint, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Erreur ${res.status}: ${errorText}`);
-      }
-
+      await api.delete(endpoint, token);
       setSelectedIds((current) => current.filter((id) => id !== doc.id));
       alert(cur.documentSupprime);
       await refetch();
     } catch (err: any) {
       console.error("Erreur suppression:", err);
-      alert(`${cur.erreurPrefix} ${err.message || cur.erreurBackend}`);
+      alert(`${cur.erreurPrefix} ${err?.message || cur.erreurBackend}`);
     }
   };
 
   const registerRetrait = (row: { id: number; reference: string; objet: string }) => {
     if (!canRetrait) { alert(cur.permissionRefusee); return; }
     setRetraitDoc({ id: row.id, reference: row.reference, objet: row.objet });
+  };
+
+  const openRetournerModal = async () => {
+    setShowRetournerModal(true);
+    try {
+      setRetournerDocs(await api.get("/api/Transactions/doit-revenir", token));
+    } catch {
+      setRetournerDocs([]);
+    }
+  };
+
+  const batchTransferSelected = () => {
+    const docs = filteredGeneral.filter((item) => selectedIds.includes(item.id) && item.transmissible !== "Non");
+    if (docs.length === 0) {
+      alert(langue === "fr" ? "Aucun document transférable sélectionné" : "لا توجد وثائق قابلة للتحويل");
+      return;
+    }
+    if (docs.length === 1) {
+      openTransfer(docs[0]);
+    } else {
+      setBatchTransferDocs(docs);
+      setTransferModalDoc(docs[0]);
+      setSelectedServices([]);
+      setTransferMessage("");
+      setTransferMustReturn(false);
+      setTransferTargetUserId(null);
+    }
   };
 
   if (!isAuthenticated) {
@@ -1303,196 +1263,30 @@ export default function Home() {
           )}
 
           {vueActive === "mes-entites" && (
-            <div className="space-y-5">
-              <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-4">
-                <div className="flex flex-wrap gap-3 justify-between items-center">
-                  <button
-                    type="button"
-                    onClick={() => setVueActive("entrant-admin")}
-                    className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition"
-                  >
-                    + {cur.gestionCourriers}
-                  </button>
-                  <input
-                    type="text"
-                    placeholder={cur.recherche}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="flex-1 min-w-64 p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowRetournerModal(true);
-                      fetch(`${BASE_URL}/api/Transactions/doit-revenir`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                      })
-                        .then((r) => r.json())
-                        .then((data) => setRetournerDocs(data))
-                        .catch(() => setRetournerDocs([]));
-                    }}
-                    className="px-4 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-bold"
-                  >
-                    {cur.docsRetourner} ({docsArchives})
-                  </button>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button type="button" onClick={() => {
-                      if (selectedDocIds.length > 0) exportSelectedDocs("export excel");
-                      else exportGeneralDocs("export excel");
-                    }} className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hover:bg-emerald-100">
-                      {selectedDocIds.length > 0 ? `export excel (${selectedDocIds.length})` : "export excel"}
-                    </button>
-                    <button type="button" onClick={() => {
-                      if (selectedDocIds.length > 0) exportSelectedDocs("export word");
-                      else exportGeneralDocs("export word");
-                    }} className="px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100">
-                      {selectedDocIds.length > 0 ? `export word (${selectedDocIds.length})` : "export word"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => downloadExcelTemplate(langue)}
-                      className="px-3 py-1.5 rounded-lg bg-teal-50 text-teal-700 text-[10px] font-bold border border-teal-200 hover:bg-teal-100 cursor-pointer flex items-center gap-1"
-                    >                        📋 {cur.chargerModele}
-                    </button>
-                    <label className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[10px] font-bold border border-violet-700 hover:bg-violet-700 cursor-pointer flex items-center gap-1">                        📥 {cur.importExcel}
-                      <input type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-200 flex flex-wrap gap-3 justify-between items-center">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">
-                      {cur.mesDocuments} ({filteredGeneral.length})
-                    </h3>
-                    <p className="text-[11px] text-slate-500 font-semibold">
-                      {selectedIds.length} {cur.doc_selectionne}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const docs = filteredGeneral.filter((item) => selectedIds.includes(item.id) && item.transmissible !== "Non");
-                        if (docs.length === 0) {
-                          alert(langue === "fr" ? "Aucun document transférable sélectionné" : "لا توجد وثائق قابلة للتحويل");
-                          return;
-                        }
-                        if (docs.length === 1) {
-                          openTransfer(docs[0]);
-                        } else {
-                          setBatchTransferDocs(docs);
-                          setTransferModalDoc(docs[0]);
-                          setSelectedServices([]);
-                          setTransferMessage("");
-                          setTransferMustReturn(false);
-                          setTransferTargetUserId(null);
-                        }
-                      }}
-                      className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold"
-                    >
-                      {cur.transfererSelection}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={archiveSelection}
-                      className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold"
-                    >
-                      {cur.archiverSelection}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-sky-50 border-b border-sky-200 text-slate-700">
-                      <tr>
-                        <th className="p-3 text-start w-10">
-                          <input
-                            type="checkbox"
-                            aria-label={cur.select}
-                            checked={selectedIds.length === filteredGeneral.length && filteredGeneral.length > 0}
-                            onChange={() => {
-                              if (selectedIds.length === filteredGeneral.length) {
-                                setSelectedIds([]);
-                              } else {
-                                setSelectedIds(filteredGeneral.map((d) => d.id));
-                              }
-                            }}
-                          />
-                        </th>
-                        <th className="p-3 text-start">{cur.tblTitre}</th>
-                        <th className="p-3 text-start">{cur.tblRef}</th>
-                        <th className="p-3 text-start">{cur.tblType}</th>
-                        <th className="p-3 text-start">{cur.tblDate}</th>
-                        <th className="p-3 text-start">{cur.tblSource}</th>
-                        <th className="p-3 text-start">{cur.tblDest}</th>
-                        <th className="p-3 text-center">{cur.tblActions}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredGeneral.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
-                            {cur.aucunDoc}
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredGeneral.map((doc) => (
-                          <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-50">
-                            <td className="p-3">
-                              <input
-                                type="checkbox"
-                                aria-label={doc.reference}
-                                checked={selectedIds.includes(doc.id)}
-                                onChange={() => toggleSelected(doc.id)}
-                              />
-                            </td>
-                            <td className="p-3 font-bold text-slate-800">{doc.objet}</td>
-                            <td className="p-3 font-mono text-slate-600">{doc.reference}</td>
-                            <td className="p-3">
-                              {doc.type === "entrant-juridique" ? cur.juridique : cur.admin}
-                            </td>
-                            <td className="p-3 text-slate-500">{doc.date}</td>
-                            <td className="p-3">{doc.source}</td>
-                            <td className="p-3">{getServiceLabel(doc.serviceActuel, langue)}</td>
-                            <td className="p-3">
-                              <div className="flex flex-wrap justify-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => { setSelectedDocument(doc); setShowModal(true); }}
-                                  className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold"
-                                >
-                                  {cur.btnVoir}
-                                </button>
-                                {doc.transmissible !== "Non" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => openTransfer(doc)}
-                                    className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-700 text-[10px] font-bold"
-                                  >
-                                    {cur.btnSuivant}
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(doc)}
-                                  className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold"
-                                >
-                                  {cur.btnSupprimer}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <MesEntitesView
+              langue={langue}
+              cur={cur}
+              filteredGeneral={filteredGeneral}
+              selectedIds={selectedIds}
+              selectedDocIds={selectedDocIds}
+              docsArchives={docsArchives}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              onNavigate={setVueActive}
+              onOpenRetourner={openRetournerModal}
+              toggleSelected={toggleSelected}
+              setSelectedIds={setSelectedIds}
+              onViewDoc={(doc: CourrierSimule) => { setSelectedDocument(doc); setShowModal(true); }}
+              onTransfer={openTransfer}
+              onBatchTransferSelected={batchTransferSelected}
+              onDelete={handleDelete}
+              onArchiveSelection={archiveSelection}
+              onExportSelected={exportSelectedDocs}
+              onExportGeneral={exportGeneralDocs}
+              onDownloadTemplate={() => downloadExcelTemplate(langue)}
+              onImportExcel={handleImportExcel}
+              getServiceLabel={getServiceLabel}
+            />
           )}
 
       {vueActive === "mes-dossiers-en-cours" && (
@@ -1500,7 +1294,6 @@ export default function Home() {
           langue={langue}
           cur={cur}
           token={token}
-          BASE_URL={BASE_URL}
           userService={userService}
           userId={user?.id}
           visibleCourriers={visibleCourriers}
@@ -1522,402 +1315,55 @@ export default function Home() {
               langue={langue}
               cur={cur}
               token={token}
-              BASE_URL={BASE_URL}
               onAccepted={refetch}
               isAdmin={isAdmin}
             />
           )}
 
           {vueActive === "archives" && (
-            <div className="space-y-5">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowCorbeille(false); }}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition ${!showCorbeille ? "bg-blue-600 text-white" : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"}`}
-                >
-                  {cur.archivesJuridiques}
-                </button>
-                {(isAdmin || isGreffier) && (
-                  <button
-                    type="button"
-                    onClick={() => { setShowCorbeille(true); fetchCorbeille(); }}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${showCorbeille ? "bg-red-600 text-white" : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"}`}
-                  >
-                    {cur.corbeille} ({corbeilleDocs.length})
-                  </button>
-                )}
-              </div>
+            <ArchivesView
+              langue={langue}
+              cur={cur}
+              showCorbeille={showCorbeille}
+              setShowCorbeille={setShowCorbeille}
+              corbeilleDocs={corbeilleDocs}
+              onFetchCorbeille={fetchCorbeille}
+              onRestoreDocument={restoreDocument}
+              filteredGeneral={filteredGeneral}
+              docsArchives={docsArchives}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              onRegisterRetrait={registerRetrait}
+              canSeeCorbeille={isAdmin || isGreffier}
+              getServiceLabel={getServiceLabel}
+            />
+          )}
 
-              {!showCorbeille ? (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
-                      <h3 className="font-bold text-slate-900 text-sm">{cur.archivesJuridiques}</h3>
-                      <p className="text-xs text-slate-500 mt-1">{cur.retraitSection}</p>
-                    </div>
-                    <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
-                      <h3 className="font-bold text-slate-900 text-sm">{cur.tousRetraits}</h3>
-                      <p className="text-2xl font-bold text-slate-900 mt-2">{docsArchives}</p>
-                    </div>
-                  </div>
-                  <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-slate-200 flex justify-between items-center">
-                      <input
-                        type="text"
-                        placeholder={cur.recherche}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full max-w-md p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const rows = filteredGeneral.slice(0, 5).map((doc, index) => ({
-                            reference: doc.reference,
-                            objet: doc.objet,
-                            service: doc.serviceActuel,
-                            retrait: index % 2 === 0 ? cur.nonCommence : cur.enCours
-                          }));
-                          exportRows(rows, "archives", "export excel", cur.archivesJuridiques);
-                        }}
-                        className="ms-3 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold"
-                      >
-                        export excel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const rows = filteredGeneral.slice(0, 5).map((doc) => ({
-                            reference: doc.reference,
-                            objet: doc.objet,
-                            service: doc.serviceActuel,
-                            statut: doc.statut
-                          }));
-                          exportRows(rows, "archives", "export word", cur.archivesJuridiques);
-                        }}
-                        className="ms-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold"
-                      >
-                        export word
-                      </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead className="bg-sky-50 text-slate-700 border-b border-sky-200">
-                          <tr>
-                            <th className="p-3 text-start">{cur.tblRef}</th>
-                            <th className="p-3 text-start">{cur.tblTitre}</th>
-                            <th className="p-3 text-start">{cur.serviceActuel}</th>
-                            <th className="p-3 text-start">{cur.statutAction}</th>
-                            <th className="p-3 text-center">{cur.tblActions}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredGeneral.slice(0, 10).map((doc) => (
-                            <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-50">
-                              <td className="p-3 font-mono">{doc.reference}</td>
-                              <td className="p-3 font-bold">{doc.objet}</td>
-                              <td className="p-3">{getServiceLabel(doc.serviceActuel, langue)}</td>
-                              <td className="p-3">
-                                {normalizeStatus(doc.statut) === "Archive" ? cur.archiveDef : cur.enCours}
-                              </td>
-                              <td className="p-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => registerRetrait({
-                                    id: doc.id,
-                                    reference: doc.reference,
-                                    objet: doc.objet
-                                  })}
-                                  className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold"
-                                >
-                                  {cur.btnEnregistrer}
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-slate-200">
-                    <h3 className="font-bold text-slate-900 text-sm">{cur.documentsSupprimes}</h3>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead className="bg-red-50 text-slate-700 border-b border-red-200">
-                        <tr>
-                          <th className="p-3 text-start">{cur.tblRef}</th>
-                          <th className="p-3 text-start">{cur.tblTitre}</th>
-                          <th className="p-3 text-start">{cur.serviceActuel}</th>
-                          <th className="p-3 text-center">{cur.tblActions}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {corbeilleDocs.length === 0 ? (
-                          <tr><td colSpan={4} className="p-6 text-center text-slate-400">{cur.aucunSupprime}</td></tr>
-                        ) : (
-                          corbeilleDocs.map((doc) => (
-                            <tr key={doc.id} className="border-b border-slate-100 hover:bg-red-50/30">
-                              <td className="p-3 font-mono">{doc.reference}</td>
-                              <td className="p-3 font-bold">{doc.objet}</td>
-                              <td className="p-3">{getServiceLabel(doc.serviceActuel, langue)}</td>
-                              <td className="p-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => restoreDocument(doc.id)}
-                                  className="px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold"
-                                >
-                                  {cur.restaurer}
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-</table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-          {vueActive === "recherche-dossiers" && (() => {
-            const s = searchTerm.toLowerCase().trim();
-            const searchResults = (() => {
-              let results = visibleCourriers;
-              if (s) {
-                results = results.filter((doc) =>
-                  doc.reference.toLowerCase().includes(s) ||
-                  doc.objet.toLowerCase().includes(s) ||
-                  doc.source.toLowerCase().includes(s) ||
-                  doc.serviceActuel.toLowerCase().includes(s) ||
-                  doc.statut.toLowerCase().includes(s)
-                );
-              }
-              if (searchFilterService) {
-                results = results.filter((doc) => doc.serviceActuel === searchFilterService);
-              }
-              if (searchFilterType) {
-                results = results.filter((doc) => doc.type === searchFilterType);
-              }
-              if (searchFilterDateDebut) {
-                results = results.filter((doc) => doc.date >= searchFilterDateDebut);
-              }
-              if (searchFilterDateFin) {
-                results = results.filter((doc) => doc.date <= searchFilterDateFin);
-              }
-              return results;
-            })();
-            const hasSearched = s.length > 0 || searchFilterService.length > 0 || searchFilterType.length > 0 || searchFilterDateDebut.length > 0 || searchFilterDateFin.length > 0;
-
-            return (
-              <div className="space-y-5">
-                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm p-4">
-                  <div className="flex flex-wrap gap-3 items-center">
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder={cur.recherche_placeholder}
-                      className="flex-1 min-w-64 p-3 border border-slate-300 dark:border-slate-600 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50 dark:bg-slate-700 dark:text-slate-200"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // If no search term, toggle the local search
-                        if (!searchTerm.trim()) {
-                          setSearchTerm(cur.recherche_exemple);
-                        }
-                      }}
-                      className="px-6 py-3 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition"
-                    >
-                      {cur.lancerRecherche}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={searchLocalDirectory}
-                      className="px-6 py-3 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 transition"
-                    >
-                      {cur.recherchePC}
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <select value={searchFilterService} onChange={(e) => setSearchFilterService(e.target.value)} className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-700 dark:text-slate-200 outline-none">
-                      <option value="">{cur.tousLesServices}</option>
-                      {[...new Set(visibleCourriers.map(d => d.serviceActuel))].sort().map(svc => (
-                        <option key={svc} value={svc}>{getServiceLabel(svc, langue)}</option>
-                      ))}
-                    </select>
-                    <select value={searchFilterType} onChange={(e) => setSearchFilterType(e.target.value)} className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-700 dark:text-slate-200 outline-none">
-                      <option value="">{cur.tousLesTypes}</option>
-                      <option value="entrant-admin">{cur.admin}</option>
-                      <option value="entrant-juridique">{cur.juridique}</option>
-                      <option value="sortant-normal">{cur.normal}</option>
-                      <option value="sortant-demande">{cur.demande}</option>
-                    </select>
-                    <input type="date" value={searchFilterDateDebut} onChange={(e) => setSearchFilterDateDebut(e.target.value)} className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-700 dark:text-slate-200 outline-none" title={cur.dateDebut} />
-                    <input type="date" value={searchFilterDateFin} onChange={(e) => setSearchFilterDateFin(e.target.value)} className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-700 dark:text-slate-200 outline-none" title={cur.dateFin} />
-                    {(searchFilterService || searchFilterType || searchFilterDateDebut || searchFilterDateFin) && (
-                      <button type="button" onClick={() => { setSearchFilterService(""); setSearchFilterType(""); setSearchFilterDateDebut(""); setSearchFilterDateFin(""); }} className="px-3 py-2 text-[11px] font-bold text-red-600 hover:text-red-800 underline">
-                        {cur.effacerFiltres}
-                      </button>
-                    )}
-                  </div>
-                  {searchLocalFiles && (
-                    <div className="mt-3 flex items-center gap-2 text-xs">
-                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded font-bold">
-                        {localFiles.length} {cur.fichiersCharges}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => { setSearchLocalFiles(false); setLocalFiles([]); }}
-                        className="text-red-500 hover:text-red-700 font-bold underline"
-                      >
-                        {cur.decharger}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {hasSearched ? (
-                  <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                      <h3 className="font-bold text-xs text-slate-800">
-                        {cur.resultatsPour(searchTerm)} ({searchResults.length})
-                      </h3>
-<div className="flex gap-1.5">
-                        <button type="button" onClick={() => exportRows(searchResults.map(d => ({
-                          [cur.tblRef]: d.reference,
-                          [cur.tblTitre]: d.objet,
-                          [cur.tblSource]: d.source,
-                          [cur.serviceActuel]: d.serviceActuel,
-                          [cur.statutAction]: d.statut,
-                        })), "recherche", "export excel", cur.rechercheDossiers)}
-                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">export excel</button>
-                        <button type="button" onClick={() => exportRows(searchResults.map(d => ({
-                          [cur.tblRef]: d.reference,
-                          [cur.tblTitre]: d.objet,
-                          [cur.tblSource]: d.source,
-                          [cur.serviceActuel]: d.serviceActuel,
-                          [cur.statutAction]: d.statut,
-                        })), "recherche", "export word", cur.rechercheDossiers)}
-                           className="px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200">export word</button>
-                       </div>
-                    </div>
-                    {searchResults.length === 0 ? (
-                      <div className="p-12 text-center">
-                        <p className="text-slate-400 font-bold text-xs">{cur.aucunResultatTrouve}</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead className="bg-sky-50 border-b border-sky-200 text-slate-700">
-                            <tr>
-                              <th className="p-3 text-start">{cur.tblRef}</th>
-                              <th className="p-3 text-start">{cur.tblTitre}</th>
-                              <th className="p-3 text-start">{cur.tblType}</th>
-                              <th className="p-3 text-start">{cur.tblDate}</th>
-                              <th className="p-3 text-start">{cur.tblSource}</th>
-                              <th className="p-3 text-start">{cur.serviceActuel}</th>
-                              <th className="p-3 text-start">{cur.statutAction}</th>
-                              <th className="p-3 text-center">{cur.tblActions}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {searchResults.map((doc) => (
-                              <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                <td className="p-3 font-mono font-bold text-slate-600">{doc.reference}</td>
-                                <td className="p-3 font-semibold text-slate-800">{doc.objet}</td>
-                                <td className="p-3 text-slate-600">{doc.type === "entrant-admin" ? cur.admin : doc.type === "entrant-juridique" ? cur.juridique : doc.type}</td>
-                                <td className="p-3 text-slate-500">{doc.date}</td>
-                                <td className="p-3">{doc.source}</td>
-                            <td className="p-3">{getServiceLabel(doc.serviceActuel, langue)}</td>
-                                <td className="p-3">
-                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                    normalizeStatus(doc.statut) === "Archive" ? "bg-slate-100 text-slate-600" :
-                                    normalizeStatus(doc.statut) === "EnCours" || normalizeStatus(doc.statut) === "EnInstance" ? "bg-blue-50 text-blue-700" :
-                                    "bg-amber-50 text-amber-700"
-                                  }`}>{doc.statut}</span>
-                                </td>
-                                <td className="p-3 text-center">
-                                  <button type="button" onClick={() => { setSelectedDocument(doc); setShowModal(true); }}
-                                    className="text-blue-600 hover:text-blue-800 font-bold px-2 py-1 rounded hover:bg-blue-50">
-                                    {cur.btnVoir}
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-12 text-center">
-                    <p className="text-base font-bold text-slate-900">{cur.recherche_label}</p>
-                    <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">
-                      {cur.recherche_description}
-                    </p>
-                  </div>
-                )}
-
-                {searchLocalFiles && searchTerm.trim() && (() => {
-                  const localResults = getLocalSearchResults(searchTerm);
-                  return localResults.length > 0 ? (
-                    <div className="bg-white border border-purple-200 rounded-lg shadow-sm overflow-hidden">
-                      <div className="p-4 border-b border-purple-200 bg-purple-50">
-                        <h3 className="font-bold text-xs text-purple-800">
-                          {langue === "fr" ? `Fichiers locaux trouvés` : `الملفات المحلية`} ({localResults.length})
-                        </h3>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead className="bg-purple-50 border-b border-purple-200 text-purple-700">
-                            <tr>
-                              <th className="p-3 text-start">{cur.nomFichier}</th>
-                              <th className="p-3 text-start">{cur.tblType}</th>
-                              <th className="p-3 text-start">{cur.chemin}</th>
-                              <th className="p-3 text-start">{cur.extrait}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {localResults.map((f, i) => {
-                              const ext = f.name.split(".").pop()?.toLowerCase() || "";
-                              const typeColors: Record<string, string> = {
-                                xlsx: "bg-emerald-100 text-emerald-700",
-                                xls: "bg-emerald-100 text-emerald-700",
-                                docx: "bg-blue-100 text-blue-700",
-                                doc: "bg-blue-100 text-blue-700",
-                                pdf: "bg-red-100 text-red-700",
-                                csv: "bg-amber-100 text-amber-700",
-                                txt: "bg-slate-100 text-slate-700",
-                              };
-                              return (
-                                <tr key={i} className="border-b border-purple-100 hover:bg-purple-50/30">
-                                  <td className="p-3 font-bold text-purple-800">{f.name}</td>
-                                  <td className="p-3">
-                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${typeColors[ext] || "bg-slate-100 text-slate-700"}`}>
-                                      {ext}
-                                    </span>
-                                  </td>
-                                  <td className="p-3 font-mono text-slate-500 text-[10px]">{f.path}</td>
-                                  <td className="p-3 text-slate-600 max-w-md truncate">{f.snippet || "-"}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-            );
-          })()}
+          {vueActive === "recherche-dossiers" && (
+            <RechercheDossiersView
+              langue={langue}
+              cur={cur}
+              visibleCourriers={visibleCourriers}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              searchFilterService={searchFilterService}
+              setSearchFilterService={setSearchFilterService}
+              searchFilterType={searchFilterType}
+              setSearchFilterType={setSearchFilterType}
+              searchFilterDateDebut={searchFilterDateDebut}
+              setSearchFilterDateDebut={setSearchFilterDateDebut}
+              searchFilterDateFin={searchFilterDateFin}
+              setSearchFilterDateFin={setSearchFilterDateFin}
+              searchLocalFiles={searchLocalFiles}
+              setSearchLocalFiles={setSearchLocalFiles}
+              localFiles={localFiles}
+              setLocalFiles={setLocalFiles}
+              onSearchLocalDirectory={searchLocalDirectory}
+              getLocalSearchResults={getLocalSearchResults}
+              getServiceLabel={getServiceLabel}
+              onViewDoc={(doc: CourrierSimule) => { setSelectedDocument(doc); setShowModal(true); }}
+            />
+          )}
 
           {isFormView && (
             <div className="bg-white rounded-xl border border-slate-300 shadow-sm w-full overflow-hidden">
@@ -2083,35 +1529,35 @@ export default function Home() {
           )}
 
           {vueActive === "admin-utilisateurs" && canManageUsers && (
-            <GestionUtilisateurs langue={langue} cur={cur} token={token} BASE_URL={BASE_URL} onExport={(f) => exportAdminData(f, "utilisateurs")} />
+            <GestionUtilisateurs langue={langue} cur={cur} token={token} onExport={(f) => exportAdminData(f, "utilisateurs")} />
           )}
 
           {vueActive === "admin-services" && canSeeAdminSection && (
-            <GestionServices langue={langue} cur={cur} token={token} BASE_URL={BASE_URL} onExport={(f) => exportAdminData(f, "services")} />
+            <GestionServices langue={langue} cur={cur} token={token} onExport={(f) => exportAdminData(f, "services")} />
           )}
 
           {vueActive === "admin-permissions" && isAdmin && (
-            <GestionPermissions langue={langue} cur={cur} token={token} BASE_URL={BASE_URL} />
+            <GestionPermissions langue={langue} cur={cur} token={token} />
           )}
 
           {vueActive === "admin-equipements" && canSeeAdminSection && (
-            <GestionEquipements langue={langue} cur={cur} token={token} BASE_URL={BASE_URL} onExport={(f) => exportAdminData(f, "equipements")} />
+            <GestionEquipements langue={langue} cur={cur} token={token} onExport={(f) => exportAdminData(f, "equipements")} />
           )}
 
           {vueActive === "admin-services-historiques" && isAdmin && (
-            <GestionServicesHistoriques langue={langue} cur={cur} token={token} BASE_URL={BASE_URL} />
+            <GestionServicesHistoriques langue={langue} cur={cur} token={token} />
           )}
 
           {vueActive === "admin-listes" && canSeeAdminSection && (
-            <GestionListes langue={langue} cur={cur} token={token} BASE_URL={BASE_URL} onExport={(f) => exportAdminData(f, "listes")} />
+            <GestionListes langue={langue} cur={cur} token={token} onExport={(f) => exportAdminData(f, "listes")} />
           )}
 
           {vueActive === "notifications" && (
-            <NotificationsPage langue={langue} cur={cur} token={token} BASE_URL={BASE_URL} onExport={exportNotifications} />
+            <NotificationsPage langue={langue} cur={cur} token={token} onExport={exportNotifications} />
           )}
 
           {vueActive === "profil" && (
-            <ProfilPage langue={langue} cur={cur} token={token} BASE_URL={BASE_URL} user={user} />
+            <ProfilPage langue={langue} cur={cur} token={token} user={user} />
           )}
         </div>
       </main>
@@ -2155,7 +1601,6 @@ export default function Home() {
           cur={cur}
           langue={langue}
           token={token}
-          BASE_URL={BASE_URL}
         />
       )}
 
@@ -2164,7 +1609,6 @@ export default function Home() {
           langue={langue}
           cur={cur}
           token={token}
-          BASE_URL={BASE_URL}
           selectedDoc={retraitDoc}
           onClose={() => setRetraitDoc(null)}
           userNom={user?.nom || ""}
@@ -2185,7 +1629,7 @@ export default function Home() {
                 <p className="text-center text-slate-400 text-xs font-bold py-8">{langue === "fr" ? "Aucun document à retourner" : "لا توجد وثائق للإرجاع"}</p>
               ) : (
                 <div className="space-y-2">
-                  {retournerDocs.map((t: any) => (
+                  {retournerDocs.map((t) => (
                     <div key={t.id} className="p-3 border border-amber-200 rounded-lg bg-amber-50 flex justify-between items-center">
                       <div>
                         <p className="text-xs font-bold text-slate-800">{t.documentSujet}</p>
@@ -2212,7 +1656,6 @@ export default function Home() {
           docId={workspaceDocId}
           onClose={() => setWorkspaceDocId(null)}
           token={token}
-          BASE_URL={BASE_URL}
           langue={langue}
           cur={cur}
           onTransfer={(doc: any) => {

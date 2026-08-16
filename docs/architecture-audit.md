@@ -1,114 +1,121 @@
 # 🏛️ System Architecture Overview — Gestion Juridique
 
-> Audit réalisé le 2026-08-04. Aucun code n'a été modifié au moment de l'audit ;
-> les corrections issues de ce rapport sont consignées dans `CHANGELOG_AGENTS.md`.
+> Document vivant. Mis à jour le 2026-08-16 (Session K — refactoring Phases 1→6).
+> Chaque modification de code/schéma/configuration est tracée dans `CHANGELOG_AGENTS.md`.
 
 ## 1. Tech Stack Summary
 
 | Layer | Technology |
 |---|---|
 | **Backend** | ASP.NET Core Web API (.NET 10, `WebApplication1`), monolithe |
-| **Frontend** | Next.js 15 (App Router, SPA côté client) + React, TypeScript, Tailwind CSS |
-| **Database** | SQL Server (LocalDB) via EF Core (`AppDbContext`), migrations code-first |
-| **Auth** | JWT (HS256) + BCrypt, RBAC custom (PermissionService + middleware) |
-| **ORM frontend** | Prisma `schema.prisma` présent mais **inutilisé** — le frontend appelle l'API .NET en `fetch` direct |
-| **Tests** | Cypress E2E (nouvellement ajouté) — aucun test backend unitaire/intégration |
-| **Tooling** | `WebApplication1.slnx`, un seul dépôt contenant les 2 apps + docs `.slim/` |
+| **Frontend** | Next.js 16 (App Router, SPA côté client) + React 19, TypeScript, Tailwind CSS 4 |
+| **Database** | SQL Server (LocalDB) via EF Core (`AppDbContext`), 20 migrations appliquées |
+| **Auth** | JWT (HS256) + BCrypt, RBAC custom (`PermissionService` + `PermissionValidationService` + middleware) |
+| **API contract** | OpenAPI (`/openapi/v1.json`) + types TS générés (`openapi-typescript` → `lib/types/api.generated.ts`) |
+| **Tests** | Backend : xUnit (**29 tests**) — permission/RBAC, middleware, seeder, transactions, workspace. E2E : Cypress (**35 tests**) |
+| **Tooling** | `WebApplication1.slnx`, monorepo 2 apps + `docs/` + `scripts/` |
 
-**Dépendances clés :** `Microsoft.EntityFrameworkCore.SqlServer`, `BCrypt.Net`, `JwtBearer`,
-`System.IdentityModel.Tokens.Jwt` (backend) ; `next`, `react`, `tailwindcss`, `prisma` (déclaré, inutilisé) (frontend).
+**Dépendances clés :** `Microsoft.EntityFrameworkCore.SqlServer`, `BCrypt.Net`, `JwtBearer` (backend) ;
+`next`, `react`, `tailwindcss`, `openapi-typescript`, `xlsx`, `jspdf`, `pdfjs-dist`, `mammoth` (frontend).
 
-## 2. Core Architecture
+## 2. Core Architecture (état après Session K)
 
 ```
 -projet-gestion-juridique-main/
-├── WebApplication1/                  ← Backend .NET (port 5200)
-│   └── WebApplication1/
-│       ├── Program.cs                ← Point d'entrée : DI, JWT, CORS, seed au démarrage
-│       ├── Controllers/              ← 22 contrôleurs (Auth, Documents, Transfer,
-│       │                               Transaction*, Courrier*, RBAC*, Equipment, …)
-│       ├── Models/                   ← Entités EF (Document, DossierJuridique,
-│       │                               Transaction, Utilisateur, Service, Permission…)
-│       ├── Data/AppDbContext.cs      ← DbContext EF Core (SQL Server)
-│       ├── Services/                 ← PermissionService, PermissionValidationService
-│       ├── Security/                 ← RequirePermissionAttribute (nouveau)
-│       ├── Core/Enums/               ← ServiceTribunal, StatutDossier, StatutTransaction
-│       └── Migrations/               ← 13+ migrations (RBAC_Initial → AddPermissionValidationLogs)
+├── WebApplication1/
+│   ├── WebApplication1.slnx
+│   ├── WebApplication1/
+│   │   ├── Program.cs                  ← Composition root : DI, JWT, CORS configurable, seed
+│   │   ├── Middleware/PermissionValidationMiddleware.cs   ← (sorti de Program.cs)
+│   │   ├── Controllers/                ← 22 contrôleurs THIN (parse → service → mapper)
+│   │   ├── Services/                   ← Logique métier : Permission*, Seeder,
+│   │   │                                  TransactionService, WorkspaceService, ServiceResult
+│   │   ├── Models/                     ← Entités EF (persistance uniquement)
+│   │   ├── DTO/                        ← Requêtes/réponses (UpdateDocumentDto, AddNoteDto, SortantDto…)
+│   │   ├── Data/AppDbContext.cs · Security/RequirePermissionAttribute.cs
+│   │   ├── Core/Enums/ · Helpers/ServiceMapper.cs
+│   │   └── Migrations/                 ← 20 migrations
+│   └── WebApplication1.Tests/          ← xUnit, 29 tests (Unit: services · middleware)
 │
-├── frontend-juridique/               ← Frontend Next.js (port 3000)
+├── frontend-juridique/
 │   ├── app/
-│   │   ├── page.tsx                  ← Shell SPA (dashboard, modales, langue)
-│   │   ├── components/               ← layout/ forms/ tables/ admin/ modals/ dashboard/
-│   │   ├── hooks/                    ← useDocuments, useListItems
-│   │   ├── api/courriers/juridique/  ← Unique route API Next.js (proxy fin)
-│   │   └── types/index.ts            ← Interfaces TS partagées
-│   ├── context/                      ← AuthContext (JWT), ThemeContext
-│   ├── lib/                          ← translations (fr/ar ~650 clés), utils, exportImport
-│   └── cypress/                      ← Suite E2E (~25 tests)
+│   │   ├── page.tsx                    ← Shell (~1 740 lignes, en cours de minceur)
+│   │   ├── api/courriers/juridique/    ← Seule route proxy Next.js
+│   │   ├── components/                 ← layout/ forms/ tables/ admin/ modals/ dashboard/ pages/
+│   │   ├── hooks/                      ← useDocuments, useListItems
+│   │   └── types/index.ts              ← Modèles de vue UI (CourrierSimule…)
+│   ├── components/ → fusionné dans app/components/pages (LoginPage déplacé)
+│   ├── context/ (AuthContext, ThemeContext)
+│   ├── lib/
+│   │   ├── api/client.ts               ← Wrapper fetch central (get/post/put/patch/delete/send)
+│   │   ├── config/env.ts               ← API_BASE_URL (source unique)
+│   │   ├── types/api.generated.ts      ← Types générés depuis OpenAPI
+│   │   └── translations.ts · constants.ts · utils.ts · exportImport.ts
+│   └── cypress/                        ← 35 tests E2E
 │
-└── docs/architecture-audit.md        ← Ce rapport
+├── docs/architecture-audit.md          ← Ce document
+├── scripts/grant-permissions-existing-db.sql
+└── CHANGELOG_AGENTS.md
 ```
 
-**Patterns :** backend = monolithe **Controller → Service → DbContext**. Frontend = **SPA client**
-(appels API directs depuis le navigateur, sauf une route proxy). RBAC piloté par données :
-~40 clés de permission seedées par service, vérifiées via les claims JWT et le
-`PermissionValidationMiddleware` (désormais piloté par attributs `[RequirePermission]`).
+**Patterns :** backend = `Controller (fin) → Service (logique) → DbContext`. Frontend = SPA avec
+**couche API unique** (`lib/api/client.ts`) — plus aucun `fetch` brut dans les composants.
+RBAC piloté par données : ~36 clés de permission seedées par service, `[RequirePermission]`
+vérifié côté serveur par le middleware via les métadonnées d'endpoint.
 
 ## 3. Data & Business Flow
 
 ```
 Browser (Next.js SPA)
-   │  POST /api/auth/login {login, password}
+   │  lib/api/client.ts (Bearer token, erreurs normalisées)
    ▼
-AuthController → BCrypt verify → PermissionService.GetUserPermissionsAsync()
-   │  JWT émis : claims role, service + claims "permission" (expiration 8h)
+POST /api/auth/login → AuthController → PermissionService → JWT (claims role/service/permissions)
    ▼
-Requêtes suivantes : fetch(`${NEXT_PUBLIC_API_URL}/api/...`, Bearer token)
+Requêtes suivantes : api.get/post/... → API :5200
    ▼
-PermissionValidationMiddleware (global)
-   │  lit [RequirePermission("key")] sur l'endpoint mappé → PermissionValidationService
-   │  vérifie les permissions (ServicePermissions / AdminPermissionOverrides) → 403 si refusé
-   │  journalise chaque contrôle dans PermissionValidationLogs
+PermissionValidationMiddleware → PermissionValidationService (403 si refusé, log dans PermissionValidationLogs)
    ▼
-Controllers → EF Core (AppDbContext) → SQL Server
+Controllers (fins) → Services (Transaction/Workspace/…) → EF Core → SQL Server
    ▼
-Les lignes Document / DossierJuridique / Transaction sont persistées ; les transferts créent
-des Transaction + Notification ; l'historique via HistoricalServices.
+Document / DossierJuridique / Transaction persistés ; transferts → Transaction + Notification ;
+historique via DocumentModification + HistoricalServices.
 ```
 
-**Seeding :** `Program.cs` exécute les migrations puis seed à chaque démarrage — admin
-(`admin/admin123`), 9 services RBAC, ~40 permissions, matrice de permissions par service,
-21 overrides admin (désactivés), 20 services historiques, 1 utilisateur démo par service.
+**Seeding :** `SeederService.SeedAsync()` au démarrage (tables vides) + `POST /api/seed/run` (admin, force mode).
 
-## 4. Key Observations / Pain Points
+## 4. Ce qui a changé pendant le refactoring (Session K)
 
-### 🔴 Corrigés (voir CHANGELOG_AGENTS.md)
-1. **`PermissionValidationLogs` DbSet manquant** — le code référençait `_context.PermissionValidationLogs`
-   sans DbSet ni migration → erreur de compilation. → **Corrigé** : DbSet ajouté + migration
-   `AddPermissionValidationLogs`.
-2. **`PermissionValidationService` jamais enregistré en DI** → crash au runtime. → **Corrigé**.
-3. **`PermissionValidationMiddleware` enregistré 2 fois** → validation dupliquée. → **Corrigé**.
-4. **Vérification de permission pilotée par le client** (`?permission=` en query string) →
-   contournable en omettant le paramètre. → **Corrigé** : `[RequirePermission]` lu depuis les
-   métadonnées d'endpoint (côté serveur).
-5. **Backend non compilable** : `var override` (mot-clé C#) dans `PermissionValidationService.cs`
-   + doublon `UpdateAdminOverrides` dans `RbacPermissionsController.cs`. → **Corrigés**.
+### ✅ Fait (Phases 1→6)
+1. **Middleware** sorti de `Program.cs` → `Middleware/` (fichier dédié).
+2. **Prisma supprimé** (dépendance morte) ; **LoginPage** unifié dans `app/components/pages/`.
+3. **Client API unique** `lib/api/client.ts` + `lib/config/env.ts` — plus aucun `BASE_URL` dupliqué
+   (6 occurrences) ni `fetch` brut dans les composants (24 dans `page.tsx` migrés).
+4. **`page.tsx` découpé** : 2226 → ~1740 lignes ; vues extraites = `MesEntitesView`,
+   `ArchivesView`, `RechercheDossiersView` (dashboard/forms/admin déjà componentisés).
+5. **Couche service backend** : `TransactionService`, `WorkspaceService`, `ServiceResult` ;
+   `TransactionsController` 430→~120 lignes, `WorkspaceController` 367→~100 lignes ; 10 tests ajoutés.
+6. **Types générés** : `openapi-typescript` + `npm run typegen` → `lib/types/api.generated.ts` ;
+   `any[]` de la coquille typés.
+7. **Durcissement** : clé JWT hors `appsettings.json` (dev → Development, prod → env `Jwt__Key`) ;
+   CORS via `Cors:AllowedOrigins`.
 
 ### 🟠 Restants / recommandations
-6. **Clé JWT en clair dans `appsettings.json`** + identifiants par défaut `admin/admin123` seedés.
-7. **CORS limité à `http://localhost:3000`** — aucun origine de production.
-8. **JWT en localStorage** (`AuthContext`) → exposable au XSS ; pas de refresh token.
-9. **Double nom de variable d'env** : `NEXT_PUBLIC_API_URL` vs `NEXT_PUBLIC_BACKEND_URL` (route proxy).
-10. **Prisma = poids mort** : dépendance + schéma déclarés, jamais utilisés.
-11. **Contrats dupliqués** : `app/types/index.ts` re-déclare des DTO backend sans contrat partagé/OpenAPI.
-12. **Logique de seed dans `Program.cs`** (600+ lignes) — à extraire dans un service `Seeder`.
-13. **Zéro test backend** ; les tests Cypress dépendent des identifiants de seed.
-14. **Permissions non décorées restantes** : `supprimer`, `archiver`, notes, mouvements juridiques,
-    retraits — laissées en `[Authorize]` car non câblées côté frontend / matrice de seed
-    incohérente (voir CHANGELOG). À mapper proprement quand le frontend gatera ces actions.
+1. **`page.tsx` encore ~1 740 lignes** : extraire l'état des formulaires (40+ `useState`) dans un
+   hook dédié (ex. `useCourrierForms`) ou un contexte — prochaine étape naturelle.
+2. **Contrats dupliqués** : `app/types/index.ts` (modèles de vue UI) reste manuel — acceptable car ce
+   sont des modèles de présentation, pas des DTO API ; les DTO API sont générés.
+3. **JWT en localStorage** (XSS) ; pas de refresh token — envisager cookies httpOnly à terme.
+4. **Identifiants de seed par défaut** (`admin/admin123`) — à forcer via env en production.
+5. **Lint frontend non vert** (~40 erreurs préexistantes : `cur: any` partout, `setState-in-effect`
+   du nouveau plugin react-hooks) — chantier distinct ; `tsc` et le build sont propres.
+6. **DTO non générés pour les projections anonymes** des contrôleurs — la génération OpenAPI couvre
+   les DTOs de requête ; les réponses anonymes restent `object` (à migrer vers des DTOs nommés si on
+   veut des types de réponse stricts).
+7. **Contrôleurs encore « épais »** : `FileUploadController` (337 l), `CourrierAdminController` (300 l) —
+   même extraction service que Transactions/Workspace.
 
 ### ✅ Points forts
-- Système i18n bilingue propre (fr/ar, ~650 clés, support RTL) entièrement câblé.
-- Modèle RBAC sensé (clés uniques, matrice par service, overrides admin).
-- Exception handler global + sérialisation JSON des enums.
-- Historique de migrations complet reflétant l'évolution réelle du schéma.
+- Couche API frontend unique (auth header, erreurs, FormData) — suppression massive de duplication.
+- Services backend testables ; 29 tests unitaires + 35 tests E2E verts après refactoring complet.
+- CORS et JWT configurables ; secrets hors dépôt.
+- Historique de migrations complet ; CHANGELOG_AGENTS.md trace chaque action.

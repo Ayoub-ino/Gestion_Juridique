@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { Langue } from "@/app/types";
 import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, WORKFLOW_STEPS, getWorkflowProgress, getRoleLabel } from "@/lib/constants";
-import { ExportFormat } from "@/lib/exportImport";
+import { api } from "@/lib/api/client";
+import type { components } from "@/lib/types/api.generated";
 
 interface WorkspaceDoc {
   id: number;
@@ -67,7 +68,6 @@ interface Props {
   docId: number | null;
   onClose: () => void;
   token: string | null;
-  BASE_URL: string;
   langue: Langue;
   cur: any;
   onTransfer?: (doc: any) => void;
@@ -75,7 +75,7 @@ interface Props {
 
 type Tab = "info" | "notes" | "historique";
 
-export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, onTransfer }: Props) {
+export function WorkspaceModal({ docId, onClose, token, langue, cur, onTransfer }: Props) {
   const { hasPermission } = useAuth();
   const canAddNotes = hasPermission("ajouter_notes");
   const [tab, setTab] = useState<Tab>("info");
@@ -130,13 +130,7 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
   useEffect(() => {
     if (!docId || !token) return;
     setLoading(true);
-    fetch(`${BASE_URL}/api/Workspace/document/${docId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
+    api.get<WorkspaceDoc>(`/api/Workspace/document/${docId}`, token)
       .then((data) => { setDoc(data); })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -144,20 +138,14 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
 
   useEffect(() => {
     if (!docId || !token) return;
-    fetch(`${BASE_URL}/api/Workspace/document/${docId}/notes`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
+    api.get<Note[]>(`/api/Workspace/document/${docId}/notes`, token)
       .then((data) => setNotes(data))
       .catch(() => {});
   }, [docId, token]);
 
   useEffect(() => {
     if (!docId || !token) return;
-    fetch(`${BASE_URL}/api/Workspace/document/${docId}/modifications`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
+    api.get<ModifRecord[]>(`/api/Workspace/document/${docId}/modifications`, token)
       .then((data) => setModifications(data))
       .catch(() => {});
   }, [docId, token]);
@@ -166,21 +154,11 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
     if (!doc || !token) return;
     setSaving(true);
     try {
-      await fetch(`${BASE_URL}/api/Workspace/document/${doc.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(editFields),
-      });
-      const updated = await fetch(`${BASE_URL}/api/Workspace/document/${doc.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setDoc(await updated.json());
+      await api.put(`/api/Workspace/document/${doc.id}`, editFields as Partial<components["schemas"]["UpdateDocumentDto"]>, token);
+      setDoc(await api.get(`/api/Workspace/document/${doc.id}`, token));
       setEditMode(false);
       setEditFields({});
-      const mods = await fetch(`${BASE_URL}/api/Workspace/document/${doc.id}/modifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setModifications(await mods.json());
+      setModifications(await api.get(`/api/Workspace/document/${doc.id}/modifications`, token));
     } catch (err) { console.error(err); }
     setSaving(false);
   };
@@ -189,12 +167,7 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
     if (!canAddNotes) { alert(cur.permissionRefusee); return; }
     if (!doc || !token || !newNote.trim()) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Workspace/document/${doc.id}/notes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ contenu: newNote }),
-      });
-      const note = await res.json();
+      const note = await api.post<Note>(`/api/Workspace/document/${doc.id}/notes`, { contenu: newNote }, token);
       setNotes([note, ...notes]);
       setNewNote("");
     } catch (err) { console.error(err); }
@@ -204,12 +177,7 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
     if (!canAddNotes) { alert(cur.permissionRefusee); return; }
     if (!token || !editingNoteText.trim()) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/Workspace/notes/${noteId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ contenu: editingNoteText }),
-      });
-      const updated = await res.json();
+      const updated = await api.put<Note>(`/api/Workspace/notes/${noteId}`, { contenu: editingNoteText }, token);
       setNotes(notes.map((n) => (n.id === noteId ? updated : n)));
       setEditingNoteId(null);
     } catch (err) { console.error(err); }
@@ -220,10 +188,7 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
     if (!token) return;
     if (!window.confirm(langue === "fr" ? "Supprimer cette note ?" : "هل تريد حذف هذه الملاحظة؟")) return;
     try {
-      await fetch(`${BASE_URL}/api/Workspace/notes/${noteId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/api/Workspace/notes/${noteId}`, token);
       setNotes(notes.filter((n) => n.id !== noteId));
     } catch (err) { console.error(err); }
   };

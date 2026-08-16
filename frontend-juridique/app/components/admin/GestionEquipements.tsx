@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { Langue, EquipmentItem } from "@/app/types";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
 import { ExportFormat } from "@/lib/exportImport";
+import { api } from "@/lib/api/client";
 
 interface Props {
   langue: Langue;
   cur: any;
   token: string | null;
-  BASE_URL: string;
   onExport?: (format: ExportFormat) => void;
 }
 
@@ -17,7 +17,7 @@ function getAllServices() {
   return SERVICE_GROUPS.flatMap(g => g.children.map(c => c.value));
 }
 
-export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: Props) {
+export function GestionEquipements({ langue, cur, token, onExport }: Props) {
   const [items, setItems] = useState<EquipmentItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("");
@@ -29,10 +29,7 @@ export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: P
 
   const fetchItems = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/Equipment`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setItems(await res.json());
+      setItems(await api.get<EquipmentItem[]>("/api/Equipment", token));
     } catch (err) { console.error("Erreur fetch equipment:", err); }
   };
 
@@ -51,19 +48,10 @@ export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: P
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editingId ? `${BASE_URL}/api/Equipment/${editingId}` : `${BASE_URL}/api/Equipment`;
-      const method = editingId ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...form, estCharge: true }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || cur.erreur);
-        return;
+      if (editingId) {
+        await api.put(`/api/Equipment/${editingId}`, { ...form, estCharge: true }, token);
+      } else {
+        await api.post("/api/Equipment", { ...form, estCharge: true }, token);
       }
 
       alert(editingId ? cur.equipementModifie : cur.equipementCree);
@@ -72,27 +60,21 @@ export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: P
       setForm({ serial: "", code: "", type: "", etat: "", service: "", numeroInventaire: "", bureau: "" });
       fetchItems();
     } catch (err: any) {
-      alert(cur.erreurPrefix + err.message);
+      alert(cur.erreurPrefix + (err?.message || ""));
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm(cur.supprimerEquipement)) return;
     try {
-      await fetch(`${BASE_URL}/api/Equipment/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/api/Equipment/${id}`, token);
       fetchItems();
     } catch (err) { console.error(err); }
   };
 
   const toggleCharge = async (id: number) => {
     try {
-      await fetch(`${BASE_URL}/api/Equipment/${id}/toggle-charge`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.put(`/api/Equipment/${id}/toggle-charge`, undefined, token);
       fetchItems();
     } catch (err) { console.error(err); }
   };
