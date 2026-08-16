@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import type { TranslationKeys } from "@/lib/translations";
+import { useState, useEffect, useCallback } from "react";
 import { Langue } from "@/app/types";
 import { api } from "@/lib/api/client";
+import { getErrorMessage } from "@/lib/utils";
 
 interface HistoricalService {
   id: number;
@@ -19,7 +21,7 @@ interface HistoricalService {
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   token: string | null;
 }
 
@@ -38,7 +40,7 @@ export function GestionServicesHistoriques({ langue, cur, token }: Props) {
     isActive: true,
   });
 
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
@@ -47,9 +49,9 @@ export function GestionServicesHistoriques({ langue, cur, token }: Props) {
       console.error("Error fetching historical services:", err);
     }
     setLoading(false);
-  };
+  }, [token]);
 
-  useEffect(() => { fetchServices(); }, [token]);
+  useEffect(() => { fetchServices(); }, [fetchServices]);
 
   const filtered = services.filter(s =>
     s.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -83,8 +85,8 @@ export function GestionServicesHistoriques({ langue, cur, token }: Props) {
       setEditingId(null);
       setForm({ nom: "", code: "", description: "", parentId: "", sortOrder: 0, isActive: true });
       fetchServices();
-    } catch (err: any) {
-      alert(err?.message || "Erreur");
+    } catch (err) {
+      alert(getErrorMessage(err) || "Erreur");
     }
   };
 
@@ -95,8 +97,8 @@ export function GestionServicesHistoriques({ langue, cur, token }: Props) {
     try {
       await api.delete(`/api/historical-services/${id}`, token);
       fetchServices();
-    } catch (err: any) {
-      alert(err?.message || "Erreur");
+    } catch (err) {
+      alert(getErrorMessage(err) || "Erreur");
     }
   };
 

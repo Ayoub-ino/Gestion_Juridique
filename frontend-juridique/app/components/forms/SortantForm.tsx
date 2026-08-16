@@ -1,5 +1,6 @@
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
 import { useRef } from "react";
 import { SERVICE_GROUPS } from "@/lib/constants";
 
@@ -9,7 +10,7 @@ interface SortantFormProps {
   setDateEnvoi: (v: string) => void;
   typeCourrier: string;
   vueActive: string;
-  cur: any;
+  cur: TranslationKeys;
   // Nouveaux champs
   service: string;
   setService: (v: string) => void;
@@ -30,7 +31,6 @@ export function SortantForm({
   dateEnvoi,
   setDateEnvoi,
   typeCourrier,
-  vueActive,
   cur,
   service,
   setService,

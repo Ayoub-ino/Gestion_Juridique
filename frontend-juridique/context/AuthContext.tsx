@@ -1,9 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { api, ApiError } from '@/lib/api/client';
 
-type User = {
+export type User = {
   id: number;
   login: string;
   nom: string;
@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
       }
-    } catch (e) {
+    } catch {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
     }
@@ -61,16 +61,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-  };
+  }, []);
 
   const [adminOverrides, setAdminOverrides] = useState<Record<string, boolean>>({});
 
-  const permissions = user?.permissions || [];
+  const permissions = useMemo(() => user?.permissions || [], [user?.permissions]);
 
   // Enhanced permission validation with admin override check
   const hasPermission = useCallback((key: string): boolean => {
@@ -88,15 +88,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return true;
   }, [user, permissions, adminOverrides]);
 
-  // Admin override validation - check if this permission is overridden for admin
-  const isAdminOverrideDisabled = useCallback((key: string): boolean => {
-    if (user?.role !== "Admin") return false;
-    // Check if this permission is in admin overrides (disabled)
-    return adminOverrides[key] === false;
-  }, [user, adminOverrides]);
-
   // Fetch admin overrides from API
-  const fetchAdminOverrides = async () => {
+  const fetchAdminOverrides = useCallback(async () => {
     try {
       const data = await api.get<{ permissions: { Key: string; Enabled: boolean }[] }>(
         "/api/rbac/permissions/admin",
@@ -112,13 +105,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Error fetching admin overrides:', error);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     if (user?.role === "Admin" && token) {
       fetchAdminOverrides();
     }
-  }, [user?.role, token]);
+  }, [user?.role, token, fetchAdminOverrides]);
 
   const isAuthenticated = !!token && !!user;
 

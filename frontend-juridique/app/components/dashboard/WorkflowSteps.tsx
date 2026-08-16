@@ -1,7 +1,8 @@
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
 import { CourrierSimule } from "@/app/types";
-import { SERVICE_GROUPS, getServiceLabel } from "@/lib/constants";
+import { getServiceLabel } from "@/lib/constants";
 
 interface WorkflowStep {
   labelFr: string;
@@ -16,7 +17,7 @@ interface WorkflowStepsProps {
   allDocs?: CourrierSimule[];
   onStepClick: (stepLabel: string, index: number) => void;
   onSelectDoc?: (doc: CourrierSimule) => void;
-  cur: any;
+  cur: TranslationKeys;
   langue: "fr" | "ar";
   docsPerStep?: number[];
 }

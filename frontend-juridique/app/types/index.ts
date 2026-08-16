@@ -41,6 +41,7 @@ export interface CourrierSimule {
   tribunalOrigine?: string;
   tribunalDestination?: string;
   transmissible?: string;
+  targetUserId?: number;
 }
 
 export interface LocalTransaction {
@@ -131,6 +132,7 @@ export interface UserItem {
   serviceNom?: string;
   serviceCode?: string;
   substituteUserId?: number;
+  deletedAt?: string | null;
 }
 
 export interface NotificationItem {

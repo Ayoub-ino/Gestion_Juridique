@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import type { TranslationKeys } from "@/lib/translations";
+import { useState, useEffect, useCallback } from "react";
 import { Langue } from "@/app/types";
 import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
@@ -9,7 +10,7 @@ import { api } from "@/lib/api/client";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   token: string | null;
   onExport?: (format: ExportFormat) => void;
 }
@@ -37,17 +38,17 @@ export function NotificationsPage({ langue, cur, token, onExport }: Props) {
   const [commentaires, setCommentaires] = useState<Record<number, string>>({});
   const [retours, setRetours] = useState<Record<number, boolean>>({});
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!token) return;
     try {
       setNotifications(await api.get<NotificationData[]>("/api/Transactions/pending", token));
     } catch (err) {
       console.error("Erreur fetch notifications:", err);
     }
-  };
+  }, [token]);
 
-  useEffect(() => { fetchNotifications(); }, [token]);
-  useEffect(() => { const interval = setInterval(fetchNotifications, 30000); return () => clearInterval(interval); }, [token]);
+  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+  useEffect(() => { const interval = setInterval(fetchNotifications, 30000); return () => clearInterval(interval); }, [fetchNotifications]);
 
   const toggleSelect = (id: number) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);

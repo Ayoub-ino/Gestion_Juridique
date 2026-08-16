@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
@@ -284,8 +285,11 @@ namespace WebApplication1.Controllers
     }
     public class CourrierAdminDto
     {
+        [Required]
         public string NumeroOrdre { get; set; } = string.Empty;
+        [Required]
         public string Expediteur { get; set; } = string.Empty;
+        [Required]
         public string Objet { get; set; } = string.Empty;
         public DateTime? DateReception { get; set; }
         public string? TypeCircuit { get; set; }

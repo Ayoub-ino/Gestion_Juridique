@@ -349,12 +349,15 @@ describe("Application E2E Tests", () => {
       });
     });
 
-    it("bureauordre (has accepter) is not blocked by permission", () => {
+    it("bureauordre (has accepter) passes the permission layer", () => {
       login("bureauordre", "bureauordre123").then((token) => {
         authed(token, "PUT", `${API_URL}/api/Transactions/1/accepter`, {
           commentaire: "test",
         }).then((res) => {
-          expect(res.status).not.to.eq(403);
+          // The middleware denies with 403 + "Permission ... not granted".
+          // Any other outcome (ownership 403 "Accès refusé", 404, or 200)
+          // proves the `accepter` permission WAS granted to bureauordre.
+          expect(JSON.stringify(res.body)).not.to.contain("not granted");
         });
       });
     });

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import type { TranslationKeys } from "@/lib/translations";
+import { useState, useEffect, useCallback } from "react";
 import { Langue, RbacService } from "@/app/types";
 import { ExportFormat } from "@/lib/exportImport";
 import { api } from "@/lib/api/client";
+import { getErrorMessage } from "@/lib/utils";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   token: string | null;
   onExport?: (format: ExportFormat) => void;
 }
@@ -19,13 +21,13 @@ export function GestionServices({ langue, cur, token, onExport }: Props) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ nom: "", code: "", description: "" });
 
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     try {
       setServices(await api.get<RbacService[]>("/api/rbac/services", token));
     } catch (err) { console.error("Erreur fetch services:", err); }
-  };
+  }, [token]);
 
-  useEffect(() => { fetchServices(); }, []);
+  useEffect(() => { fetchServices(); }, [fetchServices]);
 
   const filtered = services.filter(s =>
     !searchTerm ||
@@ -48,8 +50,8 @@ export function GestionServices({ langue, cur, token, onExport }: Props) {
       setEditingId(null);
       setForm({ nom: "", code: "", description: "" });
       fetchServices();
-    } catch (err: any) {
-      alert(err?.message || (langue === "fr" ? "Erreur" : "خطأ"));
+    } catch (err) {
+      alert(getErrorMessage(err) || (langue === "fr" ? "Erreur" : "خطأ"));
     }
   };
 

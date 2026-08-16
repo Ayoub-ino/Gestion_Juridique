@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import type { TranslationKeys } from "@/lib/translations";
+import { useState, useEffect, useCallback } from "react";
 import { Langue, UserItem, RbacService } from "@/app/types";
 import { ExportFormat } from "@/lib/exportImport";
 import { api, ApiError } from "@/lib/api/client";
+import { getErrorMessage } from "@/lib/utils";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   token: string | null;
   onExport?: (format: ExportFormat) => void;
 }
@@ -24,17 +26,17 @@ export function GestionUtilisateurs({ langue, cur, token, onExport }: Props) {
   const [archivedUsers, setArchivedUsers] = useState<UserItem[]>([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setUsers(await api.get<UserItem[]>("/api/Users", token));
     } catch (err) { console.error("Erreur fetch users:", err); }
-  };
+  }, [token]);
 
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     try {
       setRbacServices(await api.get<RbacService[]>("/api/rbac/services", token));
     } catch (err) { console.error("Erreur fetch services:", err); }
-  };
+  }, [token]);
 
   const fetchArchivedUsers = async () => {
     setLoadingArchived(true);
@@ -48,7 +50,7 @@ export function GestionUtilisateurs({ langue, cur, token, onExport }: Props) {
     }
   };
 
-  useEffect(() => { fetchUsers(); fetchServices(); }, []);
+  useEffect(() => { fetchUsers(); fetchServices(); }, [fetchUsers, fetchServices]);
 
   const filtered = users.filter(u => {
     const matchSearch = !searchTerm || u.nom.toLowerCase().includes(searchTerm.toLowerCase()) || u.login.toLowerCase().includes(searchTerm.toLowerCase());
@@ -79,11 +81,11 @@ export function GestionUtilisateurs({ langue, cur, token, onExport }: Props) {
       setEditingId(null);
       setForm({ nom: "", login: "", password: "", serviceId: 0 });
       fetchUsers();
-    } catch (err: any) {
+    } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         alert(langue === "fr" ? "Accès refusé. Votre session a peut-être expiré. Reconnectez-vous." : "تم رفض الوصول. ربما انتهت جلسته. أعد تسجيل الدخول.");
       } else {
-        alert(err?.message || (langue === "fr" ? "Erreur" : "خطأ"));
+        alert(getErrorMessage(err) || (langue === "fr" ? "Erreur" : "خطأ"));
       }
     }
   };
@@ -93,8 +95,8 @@ export function GestionUtilisateurs({ langue, cur, token, onExport }: Props) {
     try {
       await api.delete(`/api/Users/${id}`, token);
       fetchUsers();
-    } catch (err: any) {
-      alert(err?.message || (langue === "fr" ? "Erreur" : "خطأ"));
+    } catch (err) {
+      alert(getErrorMessage(err) || (langue === "fr" ? "Erreur" : "خطأ"));
     }
   };
 
@@ -250,7 +252,7 @@ export function GestionUtilisateurs({ langue, cur, token, onExport }: Props) {
                           {u.serviceNom || u.service || "-"}
                         </span>
                       </td>
-                      <td className="p-3">{(u as any).deletedAt ? new Date((u as any).deletedAt).toLocaleDateString() : "-"}</td>
+                      <td className="p-3">{u.deletedAt ? new Date(u.deletedAt).toLocaleDateString() : "-"}</td>
                       <td className="p-3">
                         <div className="flex justify-center gap-2">
                           <button

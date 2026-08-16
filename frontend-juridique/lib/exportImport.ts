@@ -63,7 +63,7 @@ function exportExcel(rows: ExportRow[], headers: string[], filename: string, lab
     const dateStr = getNowFR();
     const hdr = buildHeaderLines(label);
 
-    const wsData: any[][] = [
+    const wsData: (string | number)[][] = [
       ...hdr.map((h) => [h]),
       [],
       [`Date : ${dateStr}   |   Enregistrements : ${rows.length}`],
@@ -84,7 +84,7 @@ function exportExcel(rows: ExportRow[], headers: string[], filename: string, lab
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const name = filename.endsWith(".xlsx") ? filename : filename + ".xlsx";
     downloadBuffer(wbout, name, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  } catch (err: any) {
+  } catch (err) {
     console.error("Excel export error:", err);
     throw err;
   }
@@ -131,7 +131,7 @@ function exportWord(rows: ExportRow[], headers: string[], filename: string, labe
 
     const blob = new Blob(["\ufeff" + html], { type: "application/msword;charset=utf-8" });
     downloadBlob(blob, filename.endsWith(".doc") ? filename : filename + ".doc");
-  } catch (err: any) {
+  } catch (err) {
     console.error("Word export error:", err);
     throw err;
   }
@@ -145,7 +145,7 @@ export function downloadExcelTemplate(langue: "fr" | "ar" = "fr") {
     ? ["Titre / Objet", "Numéro de référence", "Type", "Date", "Source", "Service actuel", "Statut"]
     : ["العنوان", "المرجع", "النوع", "التاريخ", "المصدر", "المصلحة", "الحالة"];
 
-  const wsData: any[][] = [
+  const wsData: (string | number)[][] = [
     ...hdr.map((h) => [h]),
     [],
     [`Date : ${dateStr}   |   Enregistrements : 0`],
@@ -284,7 +284,7 @@ export function importFromFile(file: File): Promise<ImportResult> {
             let hasData = false;
             for (let c = range.s.c; c < range.s.c + headers.length; c++) {
               const cell = ws[XLSX.utils.encode_cell({ r, c })];
-              let val = cell ? String(cell.v ?? "").trim() : "";
+              const val = cell ? String(cell.v ?? "").trim() : "";
               if (val) hasData = true;
               row[headers[c - range.s.c]] = val;
             }
@@ -292,7 +292,7 @@ export function importFromFile(file: File): Promise<ImportResult> {
           }
 
           resolve({ columns: headers, data: jsonData });
-        } catch (err) {
+        } catch {
           reject(new Error());
         }
       };
@@ -317,7 +317,7 @@ export function importFromFile(file: File): Promise<ImportResult> {
             const rows = lines.map((line, i) => ({ Ligne: i + 1, Contenu: line.trim() }));
             resolve({ columns: ["Ligne", "Contenu"], data: rows });
           }
-        } catch (err) {
+        } catch {
           reject(new Error());
         }
       };

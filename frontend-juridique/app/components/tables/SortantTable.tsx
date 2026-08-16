@@ -1,5 +1,6 @@
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
 import { CourrierSimule } from "@/app/types";
 import { normalizeStatus } from "@/lib/utils";
 import { ExportFormat } from "@/lib/exportImport";
@@ -17,7 +18,7 @@ interface SortantTableProps {
   onMarquerEnvoye: (id: number) => void;
   onMarquerAttente: (id: number) => void;
   onAnnuler: (id: number) => void;
-  cur: any;
+  cur: TranslationKeys;
   langue?: "fr" | "ar";
   onExport?: (format: ExportFormat) => void;
 }
@@ -29,13 +30,11 @@ export function SortantTable({
   onView,
   onTransfer,
   onDelete,
-  onOpen,
   canDelete = true,
   onMarquerEnvoye,
   onMarquerAttente,
   onAnnuler,
   cur,
-  langue = "fr",
   onExport
 }: SortantTableProps) {
   const statuts = ["tous", "Brouillon", "EnAttente", "Envoye", "Annule"];

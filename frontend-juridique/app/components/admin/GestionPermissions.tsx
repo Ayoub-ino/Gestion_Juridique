@@ -1,13 +1,15 @@
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
 import React from "react";
-import { useState, useEffect } from "react";
-import { Langue, RbacService, Permission, ServicePermission } from "@/app/types";
+import { useState, useEffect, useCallback } from "react";
+import { Langue, RbacService, ServicePermission } from "@/app/types";
 import { api } from "@/lib/api/client";
+import { getErrorMessage } from "@/lib/utils";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   token: string | null;
 }
 
@@ -38,7 +40,7 @@ export function GestionPermissions({ langue, cur, token }: Props) {
   const [adminEditPerms, setAdminEditPerms] = useState<ServicePermission[]>([]);
   const [isEditingAdmin, setIsEditingAdmin] = useState(false);
 
-  const fetchMatrix = async () => {
+  const fetchMatrix = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
@@ -47,18 +49,18 @@ export function GestionPermissions({ langue, cur, token }: Props) {
       console.error("Error fetching matrix:", err);
     }
     setLoading(false);
-  };
+  }, [token]);
 
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     if (!token) return;
     try {
       setServices(await api.get<RbacService[]>("/api/rbac/services", token));
     } catch (err) {
       console.error("Error fetching services:", err);
     }
-  };
+  }, [token]);
 
-  const fetchAdminPermissions = async () => {
+  const fetchAdminPermissions = useCallback(async () => {
     if (!token) return;
     try {
       const data = await api.get<{ permissions: AdminPerm[] }>("/api/rbac/permissions/admin", token);
@@ -66,9 +68,9 @@ export function GestionPermissions({ langue, cur, token }: Props) {
     } catch (err) {
       console.error("Error fetching admin permissions:", err);
     }
-  };
+  }, [token]);
 
-  const fetchServicePermissions = async (serviceId: number) => {
+  const fetchServicePermissions = useCallback(async (serviceId: number) => {
     if (!token) return;
     setLoading(true);
     try {
@@ -78,19 +80,19 @@ export function GestionPermissions({ langue, cur, token }: Props) {
       console.error("Error fetching service permissions:", err);
     }
     setLoading(false);
-  };
+  }, [token]);
 
   useEffect(() => {
     fetchMatrix();
     fetchServices();
     fetchAdminPermissions();
-  }, [token]);
+  }, [fetchMatrix, fetchServices, fetchAdminPermissions]);
 
   useEffect(() => {
     if (selectedServiceId && view === "edit" && !isEditingAdmin) {
       fetchServicePermissions(selectedServiceId);
     }
-  }, [selectedServiceId, view, isEditingAdmin]);
+  }, [selectedServiceId, view, isEditingAdmin, fetchServicePermissions]);
 
   const togglePermission = (key: string) => {
     setServicePerms(prev =>
@@ -117,8 +119,8 @@ export function GestionPermissions({ langue, cur, token }: Props) {
       setView("matrix");
       setSelectedServiceId(null);
       fetchMatrix();
-    } catch (err: any) {
-      alert(err?.message || "Erreur");
+    } catch (err) {
+      alert(getErrorMessage(err) || "Erreur");
     }
     setSaving(false);
   };
@@ -138,8 +140,8 @@ export function GestionPermissions({ langue, cur, token }: Props) {
       setSelectedServiceId(null);
       fetchMatrix();
       fetchAdminPermissions();
-    } catch (err: any) {
-      alert(err?.message || "Erreur");
+    } catch (err) {
+      alert(getErrorMessage(err) || "Erreur");
     }
     setSaving(false);
   };

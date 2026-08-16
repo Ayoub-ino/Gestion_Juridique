@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using WebApplication1.Data;
@@ -185,7 +186,9 @@ namespace WebApplication1.Controllers
 
     public class CreateDossierJuridiqueDto
     {
+        [Required]
         public string? Reference { get; set; }
+        [Required]
         public string? Objet { get; set; }
         public string? Provenance { get; set; }
         public string? Circuit { get; set; }

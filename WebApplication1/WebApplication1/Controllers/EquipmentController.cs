@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
@@ -122,10 +123,14 @@ namespace WebApplication1.Controllers
 
     public class CreateEquipmentDto
     {
+        [Required]
         public string Serial { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
+        [Required]
         public string Type { get; set; } = string.Empty;
+        [Required]
         public string Etat { get; set; } = string.Empty;
+        [Required]
         public string Service { get; set; } = string.Empty;
         public string? NumeroInventaire { get; set; }
         public string? Bureau { get; set; }

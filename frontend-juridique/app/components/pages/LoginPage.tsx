@@ -18,8 +18,8 @@ export default function LoginPage({ langue = "ar" }: { langue?: Langue }) {
     setError('');
     try {
       await loginUser(login, password);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de la connexion");
     }
   };
 

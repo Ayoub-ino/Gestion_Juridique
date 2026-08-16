@@ -1,9 +1,10 @@
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
 import { useState, useEffect } from "react";
-import { Langue } from "@/app/types";
+import { Langue, CourrierSimule } from "@/app/types";
 import { useAuth } from "@/context/AuthContext";
-import { SERVICE_GROUPS, WORKFLOW_STEPS, getWorkflowProgress, getRoleLabel } from "@/lib/constants";
+import { getRoleLabel } from "@/lib/constants";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/types/api.generated";
 
@@ -22,8 +23,8 @@ interface WorkspaceDoc {
   DateEntree?: string;
   TypeCircuit?: string;
   MotifException?: string;
-  ServiceActuel: any;
-  StatutActuel: any;
+  ServiceActuel: string | number | null;
+  StatutActuel: string | number | null;
   FilePath?: string;
   Transmissible?: string;
   NumeroBureauOrdre?: string;
@@ -40,7 +41,7 @@ interface WorkspaceDoc {
   TribunalDestination?: string;
   NumeroEnvoi?: string;
   DateEnvoi?: string;
-  transactions?: any[];
+  transactions?: unknown[];
 }
 
 interface Note {
@@ -69,8 +70,8 @@ interface Props {
   onClose: () => void;
   token: string | null;
   langue: Langue;
-  cur: any;
-  onTransfer?: (doc: any) => void;
+  cur: TranslationKeys;
+  onTransfer?: (doc: CourrierSimule) => void;
 }
 
 type Tab = "info" | "notes" | "historique";
@@ -118,7 +119,8 @@ export function WorkspaceModal({ docId, onClose, token, langue, cur, onTransfer 
     Enregistrement: langue === "fr" ? "Enregistrement" : "التسجيل",
   };
 
-  const getServiceLabel = (val: any): string => {
+  const getServiceLabel = (val: string | number | null | undefined): string => {
+    if (val === null || val === undefined) return "";
     if (typeof val === "number") {
       const keys = Object.keys(SERVICE_LABELS);
       if (val >= 0 && val < keys.length) return SERVICE_LABELS[keys[val]] || String(val);
@@ -273,7 +275,7 @@ export function WorkspaceModal({ docId, onClose, token, langue, cur, onTransfer 
             )}
             {onTransfer && doc && doc.Transmissible !== "Non" && (
               <button
-                onClick={() => onTransfer(doc)}
+                onClick={() => onTransfer(doc as unknown as CourrierSimule)}
                 className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-bold border border-indigo-200 hover:bg-indigo-100"
               >
                 {cur.transferer}

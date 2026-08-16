@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -91,7 +92,9 @@ namespace WebApplication1.Controllers
 
     public class LoginDto
     {
+        [Required]
         public string Login { get; set; } = string.Empty;
+        [Required]
         public string Password { get; set; } = string.Empty;
     }
 }

@@ -1,9 +1,10 @@
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
 import { CourrierSimule, VueActive } from "@/app/types";              
 import { SearchBar } from "@/app/components/common/SearchBar";       
 import { WorkflowSteps } from "@/app/components/dashboard/WorkflowSteps"; 
-import { StatsCircles } from "@/app/components/dashboard/StatsCircles";   
+import { StatsCircles, StatsData } from "@/app/components/dashboard/StatsCircles";
 import { ActivityCards } from "@/app/components/dashboard/ActivityCards"; 
 import { GeneralTable } from "@/app/components/tables/GeneralTable";      
 import { SortantTable } from "@/app/components/tables/SortantTable";     
@@ -20,7 +21,7 @@ interface DashboardViewProps {
   allDocs?: CourrierSimule[];
   filtreStatutSortant: string;
   setFiltreStatutSortant: (s: string) => void;
-  stats: any;
+  stats: StatsData;
   totalDocs: number;
   activityCards: { title: string; value: number; view: VueActive; accent: string }[];
   onViewDoc: (doc: CourrierSimule) => void;
@@ -32,7 +33,7 @@ interface DashboardViewProps {
   onAnnuler: (id: number) => void;
   onOpenDoc?: (doc: CourrierSimule) => void;
   onNavigate: (view: VueActive) => void;
-  cur: any;
+  cur: TranslationKeys;
   langue: "fr" | "ar";
   onExportGeneral?: (format: ExportFormat) => void;
   onImportExcel?: (file: File) => void;
@@ -42,7 +43,7 @@ interface DashboardViewProps {
   selectedDocIds?: number[];
   onToggleDocSelect?: (id: number) => void;
   onSelectAllDocs?: () => void;
-  recentActivity?: any[];
+  recentActivity?: { type: string; label: string; reference: string; time: string; doc?: CourrierSimule }[];
   serviceLoad?: { service: string; count: number; label: string }[];
 }
 
@@ -50,7 +51,6 @@ export function DashboardView({
   searchTerm,
   setSearchTerm,
   workflowDoc,
-  setWorkflowDocId,
   filteredGeneral,
   filteredSortant,
   allDocs = [],
@@ -90,7 +90,7 @@ export function DashboardView({
             {cur.activiteRecente}
           </h3>
           <div className="flex gap-3 overflow-x-auto pb-2">
-            {recentActivity.slice(0, 6).map((a: any, i: number) => (
+            {recentActivity.slice(0, 6).map((a, i) => (
               <button
                 key={i}
                 onClick={() => a.doc && onViewDoc(a.doc)}
