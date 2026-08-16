@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Langue } from "@/app/types";
+import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
 import { exportRows, ExportFormat } from "@/lib/exportImport";
 
@@ -29,6 +30,9 @@ interface TransactionData {
 }
 
 export function TransactionsPage({ langue, cur, token, BASE_URL, onAccepted, isAdmin }: Props) {
+  const { hasPermission } = useAuth();
+  const canAccept = hasPermission("accepter");
+  const canRefuse = hasPermission("refuser");
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [commentaires, setCommentaires] = useState<Record<number, string>>({});
   const [retours, setRetours] = useState<Record<number, boolean>>({});
@@ -77,6 +81,7 @@ export function TransactionsPage({ langue, cur, token, BASE_URL, onAccepted, isA
   };
 
   const handleAccept = async (id: number) => {
+    if (!canAccept) { alert(cur.permissionRefusee); return; }
     if (!token) return;
     try {
       const res = await fetch(`${BASE_URL}/api/Transactions/${id}/accepter`, {
@@ -92,6 +97,7 @@ export function TransactionsPage({ langue, cur, token, BASE_URL, onAccepted, isA
   };
 
   const handleRefuse = async (id: number) => {
+    if (!canRefuse) { alert(cur.permissionRefusee); return; }
     if (!token) return;
     const motif = commentaires[id] || "";
     if (!motif) {
@@ -268,6 +274,7 @@ export function TransactionsPage({ langue, cur, token, BASE_URL, onAccepted, isA
                             </label>
                           </div>
                           <div className="flex gap-1.5">
+                            {canAccept && (
                             <button
                               type="button"
                               onClick={() => handleAccept(t.id)}
@@ -275,6 +282,8 @@ export function TransactionsPage({ langue, cur, token, BASE_URL, onAccepted, isA
                             >
                               {langue === "fr" ? "Accepter" : "قبول"}
                             </button>
+                            )}
+                            {canRefuse && (
                             <button
                               type="button"
                               onClick={() => handleRefuse(t.id)}
@@ -282,6 +291,7 @@ export function TransactionsPage({ langue, cur, token, BASE_URL, onAccepted, isA
                             >
                               {langue === "fr" ? "Refuser" : "رفض"}
                             </button>
+                            )}
                           </div>
                         </div>
                       ) : t.statut === "Accepte" ? (

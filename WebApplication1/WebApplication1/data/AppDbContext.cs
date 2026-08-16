@@ -30,6 +30,7 @@ namespace WebApplication1.Data
         public DbSet<ServicePermission> ServicePermissions { get; set; }
         public DbSet<AdminPermissionOverride> AdminPermissionOverrides { get; set; }
         public DbSet<HistoricalService> HistoricalServices { get; set; }
+        public DbSet<PermissionValidationLog> PermissionValidationLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

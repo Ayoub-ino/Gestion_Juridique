@@ -106,6 +106,7 @@ namespace WebApplication1.Controllers
         /// Get all services with their permission summary.
         /// </summary>
         [HttpGet("matrix")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetMatrix()
         {
             var services = await _context.RbacServices.OrderBy(s => s.Nom).ToListAsync();
@@ -142,6 +143,7 @@ namespace WebApplication1.Controllers
         /// GET api/rbac/permissions/admin — get admin permission overrides.
         /// </summary>
         [HttpGet("admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAdminOverrides()
         {
             // Get all permissions

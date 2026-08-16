@@ -7,7 +7,7 @@ namespace WebApplication1.Models
         public int Id { get; set; }
 
         public int DocumentId { get; set; }
-        public Document Document { get; set; }
+        public Document Document { get; set; } = null!;
 
         public ServiceTribunal ServiceOrigine { get; set; }
         public ServiceTribunal ServiceDestination { get; set; }

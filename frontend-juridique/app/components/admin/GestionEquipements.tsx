@@ -62,22 +62,22 @@ export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: P
 
       if (!res.ok) {
         const err = await res.json();
-        alert(err.error || (langue === "fr" ? "Erreur" : "خطأ"));
+        alert(err.error || cur.erreur);
         return;
       }
 
-      alert(editingId ? (langue === "fr" ? "Équipement modifié" : "تم تعديل المعدات") : (langue === "fr" ? "Équipement créé" : "تم إنشاء المعدات"));
+      alert(editingId ? cur.equipementModifie : cur.equipementCree);
       setShowForm(false);
       setEditingId(null);
       setForm({ serial: "", code: "", type: "", etat: "", service: "", numeroInventaire: "", bureau: "" });
       fetchItems();
     } catch (err: any) {
-      alert((langue === "fr" ? "Erreur: " : "خطأ: ") + err.message);
+      alert(cur.erreurPrefix + err.message);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm(langue === "fr" ? "Supprimer cet équipement ?" : "هل تريد حذف هذه المعدة؟")) return;
+    if (!confirm(cur.supprimerEquipement)) return;
     try {
       await fetch(`${BASE_URL}/api/Equipment/${id}`, {
         method: "DELETE",
@@ -110,17 +110,17 @@ export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: P
     <div className="space-y-5">
       <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
         <div className="flex flex-wrap gap-3 items-center">
-          <input type="text" placeholder={langue === "fr" ? "Rechercher (série, service)" : "بحث (سلسلة، مصلحة)"}
+          <input type="text" placeholder={cur.recherche}
             value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 min-w-64 p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50" />
           <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
             className="p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-white">
-            <option value="">{langue === "fr" ? "Tous types" : "جميع الأنواع"}</option>
+            <option value="">{cur.tousLesTypes}</option>
             {types.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <select value={filterEtat} onChange={(e) => setFilterEtat(e.target.value)}
             className="p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-white">
-            <option value="">{langue === "fr" ? "Tous états" : "جميع الحالات"}</option>
+            <option value="">{cur.tousEtats}</option>
             {etats.map(e => <option key={e} value={e}>{e}</option>)}
           </select>
           <button type="button" onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ serial: "", code: "", type: "", etat: "", service: "", numeroInventaire: "", bureau: "" }); }}
@@ -133,7 +133,7 @@ export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: P
       {showForm && (
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
           <h3 className="font-bold text-sm text-slate-800 mb-4">
-            {editingId ? (langue === "fr" ? "Modifier l'équipement" : "تعديل المعدة") : (langue === "fr" ? "Ajouter un équipement" : "إضافة معدة")}
+            {editingId ? cur.editer : cur.ajouter}
           </h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-7 gap-4">
             <div>
@@ -142,35 +142,35 @@ export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: P
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Code</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.code}</label>
               <input type="text" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })}
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Type *" : "النوع *"}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{`${cur.tblType} *`}</label>
               <input type="text" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} required
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "État *" : "الحالة *"}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{`${cur.etat} *`}</label>
               <input type="text" value={form.etat} onChange={(e) => setForm({ ...form, etat: e.target.value })} required
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "N° Inventaire" : "رقم الجرد"}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.numeroInterne}</label>
               <input type="text" value={form.numeroInventaire} onChange={(e) => setForm({ ...form, numeroInventaire: e.target.value })}
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Bureau" : "المكتب"}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.bureau}</label>
               <input type="text" value={form.bureau} onChange={(e) => setForm({ ...form, bureau: e.target.value })}
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Service *" : "المصلحة *"}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{`${cur.service} *`}</label>
               <select value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} required
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500">
-                <option value="">{langue === "fr" ? "Service" : "مصلحة"}</option>
+                <option value="">{cur.choisirService}</option>
                 {SERVICE_GROUPS.map(group => (
                   <optgroup key={group.label} label={group.fr}>
                     {group.children.map(svc => (
@@ -182,7 +182,7 @@ export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: P
             </div>
             <div className="md:col-span-7 flex gap-2">
               <button type="submit" className="px-6 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">
-                {editingId ? (langue === "fr" ? "Modifier" : "تعديل") : cur.ajouter}
+                {editingId ? cur.editer : cur.ajouter}
               </button>
               <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }}
                 className="px-6 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition">
@@ -196,11 +196,11 @@ export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: P
       <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 className="font-bold text-slate-800 text-xs">
-            {langue === "fr" ? "Équipements" : "المعدات"}
+            {cur.equipements}
           </h3>
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500">
-              {filtered.length} {langue === "fr" ? "équipements" : "معدة"}
+              {filtered.length} {cur.equipements}
             </span>
             {onExport && (
               <div className="flex gap-1">
@@ -229,12 +229,12 @@ export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: P
                 <th className="p-3 text-start">ID</th>
                 <th className="p-3 text-start">{cur.serie}</th>
                 <th className="p-3 text-start">{cur.code}</th>
-                <th className="p-3 text-start">{langue === "fr" ? "Type" : "النوع"}</th>
-                <th className="p-3 text-start">{langue === "fr" ? "État" : "الحالة"}</th>
-                <th className="p-3 text-start">{langue === "fr" ? "N° Inventaire" : "رقم الجرد"}</th>
-                <th className="p-3 text-start">{langue === "fr" ? "Bureau" : "المكتب"}</th>
+                <th className="p-3 text-start">{cur.tblType}</th>
+                <th className="p-3 text-start">{cur.etat}</th>
+                <th className="p-3 text-start">{cur.numeroInterne}</th>
+                <th className="p-3 text-start">{cur.bureau}</th>
                 <th className="p-3 text-start">{cur.service}</th>
-                <th className="p-3 text-center">{langue === "fr" ? "Chargé" : "محمل"}</th>
+                <th className="p-3 text-center">{cur.charge}</th>
                 <th className="p-3 text-center">{cur.tblActions}</th>
               </tr>
             </thead>
@@ -254,18 +254,18 @@ export function GestionEquipements({ langue, cur, token, BASE_URL, onExport }: P
                     <td className="p-3">{getServiceLabel(item.service)}</td>
                     <td className="p-3 text-center">
                       <span className={`px-2 py-1 rounded text-[10px] font-bold ${item.estCharge ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                        {item.estCharge ? (langue === "fr" ? "Chargé" : "محمل") : (langue === "fr" ? "Déchargé" : "غير محمل")}
+                        {item.estCharge ? cur.charge : cur.decharge}
                       </span>
                     </td>
                     <td className="p-3">
                       <div className="flex justify-center gap-1">
                         <button type="button" onClick={() => { setEditingId(item.id); setForm({ serial: item.serial, code: item.code, type: item.type, etat: item.etat, service: item.service, numeroInventaire: item.numeroInventaire || "", bureau: item.bureau || "" }); setShowForm(true); }}
                           className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold">
-                          {langue === "fr" ? "Modifier" : "تعديل"}
+                          {cur.editer}
                         </button>
                         <button type="button" onClick={() => toggleCharge(item.id)}
                           className={`px-2 py-1 rounded text-[10px] font-bold ${item.estCharge ? "border border-amber-200 bg-amber-50 text-amber-700" : "border border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
-                          {item.estCharge ? (langue === "fr" ? "Décharger" : "تفريغ") : (langue === "fr" ? "Charger" : "تحميل")}
+                          {item.estCharge ? cur.decharger : cur.charger}
                         </button>
                         <button type="button" onClick={() => handleDelete(item.id)}
                           className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold">

@@ -100,26 +100,26 @@ export function AdminForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-2">
-            {langue === "fr" ? "Référence" : "المرجع"} <span className="text-red-500">*</span>
+            {cur.tblRef} <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={reference}
             onChange={(e) => setReference(e.target.value)}
-            placeholder={langue === "fr" ? "Ex: BO-2026-99" : "مثال: م ض 2026-99"}
+            placeholder={cur.recherche_exemple}
             className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
             required
           />
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-2">
-            {langue === "fr" ? "Objet" : "الموضوع"} <span className="text-red-500">*</span>
+            {cur.tblTitre} <span className="text-red-500">*</span>
           </label>
           <textarea
             rows={2}
             value={objet}
             onChange={(e) => setObjet(e.target.value)}
-            placeholder={langue === "fr" ? "Saisissez l'objet..." : "اكتب هنا الموضوع..."}
+            placeholder={cur.sujet_placeholder}
             className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
             required
           />
@@ -129,7 +129,7 @@ export function AdminForm({
       {/* ===== Service ===== */}
       <div>
         <label className="block text-xs font-bold text-slate-700 mb-2">
-          {langue === "fr" ? "Service d'origine" : "مصدر الخدمة"}
+          {cur.serviceOrigine}
         </label>
         <input
           type="text"
@@ -145,13 +145,13 @@ export function AdminForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-2">
-            {langue === "fr" ? "Expéditeur" : "المرسل"} <span className="text-red-500">*</span>
+            {cur.provenance} <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={expediteur}
             onChange={(e) => setExpediteur(e.target.value)}
-            placeholder={langue === "fr" ? "Nom de l'expéditeur..." : "اسم المرسل..."}
+            placeholder={cur.provenance}
             className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
             required
           />
@@ -172,7 +172,7 @@ export function AdminForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-2">
-            {langue === "fr" ? "Source" : "المصدر"} <span className="text-red-500">*</span>
+            {cur.tblSource} <span className="text-red-500">*</span>
           </label>
           <select
             value={source}
@@ -180,7 +180,7 @@ export function AdminForm({
             className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
             required
           >
-            <option value="">-- {langue === "fr" ? "Choisir" : "اختر"} --</option>
+            <option value="">-- {cur.choisirService} --</option>
             {(sourceOptions && sourceOptions.length > 0 ? sourceOptions : [
               { value: "Ministère", label: langue === "fr" ? "Ministère" : "وزارة" },
               { value: "Direction", label: langue === "fr" ? "Direction" : "مديرية" },
@@ -263,7 +263,7 @@ export function AdminForm({
             <option value="">-- {cur.choisirEtat} --</option>
             {(etatOptions && etatOptions.length > 0 ? etatOptions : [
               { value: "Reçu", label: langue === "fr" ? "Reçu" : "وارد" },
-              { value: "En cours", label: langue === "fr" ? "En cours" : "قيد المعالجة" },
+              { value: "En cours", label: cur.enCours },
               { value: "Traité", label: langue === "fr" ? "Traité" : "معالج" },
               { value: "Classé", label: langue === "fr" ? "Classé" : "مصنف" }
             ]).map((opt) => (

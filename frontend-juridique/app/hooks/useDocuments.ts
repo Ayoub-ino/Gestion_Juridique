@@ -4,10 +4,12 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { CourrierSimule, VueActive, Langue } from "@/app/types";
 import { getServiceLabel, getStatusLabel } from "@/lib/constants";
+import { translations } from "@/lib/translations";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5200";
 
 export function useDocuments(token: string | null, langue: Langue, vueActive: VueActive) {
+  const cur = translations[langue];
   const [listeCourriers, setListeCourriers] = useState<CourrierSimule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,12 +45,12 @@ export function useDocuments(token: string | null, langue: Langue, vueActive: Vu
         const data = await adminRes.json();
         const formatted = data.map((c: any) => ({
           id: c.id,
-          reference: c.numeroOrdre || c.reference || (langue === "fr" ? "N/A" : "غير متوفر"),
-          objet: c.objet || c.sujet || (langue === "fr" ? "Sans objet" : "بدون موضوع"),
+          reference: c.numeroOrdre || c.reference || cur.na,
+          objet: c.objet || c.sujet || cur.sansObjet,
           type: "entrant-admin" as VueActive,
           date: new Date(c.dernierTransfert || c.dateCreation).toLocaleDateString(),
           dateRaw: c.dernierTransfert || c.dateCreation,
-          source: c.expediteur || c.source || (langue === "fr" ? "Inconnu" : "غير معروف"),
+          source: c.expediteur || c.source || cur.inconnu,
           serviceActuel: getServiceLabel(c.serviceActuel || "BureauOrdre", langue),
           serviceActuelKey: c.serviceActuel || "BureauOrdre",
           statut: getStatusLabel(c.statutActuel || "Nouveau", langue),
@@ -69,12 +71,12 @@ export function useDocuments(token: string | null, langue: Langue, vueActive: Vu
         const data = await juridiqueRes.json();
         const formatted = data.map((c: any) => ({
           id: c.id,
-          reference: c.numeroReference || c.reference || (langue === "fr" ? "N/A" : "غير متوفر"),
-          objet: c.objet || c.sujet || (langue === "fr" ? "Sans objet" : "بدون موضوع"),
+          reference: c.numeroReference || c.reference || cur.na,
+          objet: c.objet || c.sujet || cur.sansObjet,
           type: "entrant-juridique" as VueActive,
           date: new Date(c.dernierTransfert || c.dateCreation).toLocaleDateString(),
           dateRaw: c.dernierTransfert || c.dateCreation,
-          source: c.demandeur || c.source || (langue === "fr" ? "Inconnu" : "غير معروف"),
+          source: c.demandeur || c.source || cur.inconnu,
           serviceActuel: getServiceLabel(c.serviceActuel || "BureauOrdre", langue),
           serviceActuelKey: c.serviceActuel || "BureauOrdre",
           statut: getStatusLabel(c.statutActuel || "Nouveau", langue),
@@ -98,16 +100,16 @@ export function useDocuments(token: string | null, langue: Langue, vueActive: Vu
           if (statutBrut === "Nouveau") statutBrut = "Brouillon";
           return {
             id: c.id,
-            reference: c.numeroEnvoi || c.reference || (langue === "fr" ? "N/A" : "غير متوفر"),
-            objet: c.objet || c.sujet || (langue === "fr" ? "Sans objet" : "بدون موضوع"),
+            reference: c.numeroEnvoi || c.reference || cur.na,
+            objet: c.objet || c.sujet || cur.sansObjet,
             type: c.typeSortant === "demande" ? "sortant-demande" : "sortant-normal",
             date: new Date(c.dernierTransfert || c.dateCreation).toLocaleDateString(),
             dateRaw: c.dernierTransfert || c.dateCreation,
-            source: langue === "fr" ? "Service émetteur" : "المصلحة المصدرة",
+            source: cur.serviceEmetteur,
             serviceActuel: getServiceLabel(c.serviceActuel || "BureauOrdre", langue),
             serviceActuelKey: c.serviceActuel || "BureauOrdre",
             statut: getStatusLabel(statutBrut, langue),
-            destinataireExterne: c.destinataireExterne || (langue === "fr" ? "Inconnu" : "غير معروف"),
+            destinataireExterne: c.destinataireExterne || cur.inconnu,
             dateEnvoi: c.dateEnvoi ? new Date(c.dateEnvoi).toLocaleDateString() : "-",
             typeSortant: c.typeSortant || "normal",
             tribunalOrigine: c.tribunalOrigine || "",

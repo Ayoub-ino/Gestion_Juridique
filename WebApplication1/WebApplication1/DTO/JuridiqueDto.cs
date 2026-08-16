@@ -6,11 +6,11 @@ namespace WebApplication1.DTO
     {
         // Ces propriétés correspondent au JSON envoyé par le frontend
 
-        public string Provenance { get; set; }
-        public string Reference { get; set; }
-        public string Objet { get; set; }
+        public string Provenance { get; set; } = string.Empty;
+        public string Reference { get; set; } = string.Empty;
+        public string Objet { get; set; } = string.Empty;
         public string? FichierUrl { get; set; }
-        public string Circuit { get; set; }              // "maktab_dabt" ou "kitaba_khasa"
+        public string Circuit { get; set; } = string.Empty;              // "maktab_dabt" ou "kitaba_khasa"
         public string? ExceptionType { get; set; }       // pour kitaba_khasa
         public string? JalsatTransaction { get; set; }   // "ijra2_baht", "moufawad", "khibra", "moqarir"
         public string? TaslimTransaction { get; set; }   // "tabligh", "tasfiya", "archive"

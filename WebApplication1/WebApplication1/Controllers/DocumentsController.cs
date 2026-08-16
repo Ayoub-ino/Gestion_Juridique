@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -22,7 +23,7 @@ namespace WebApplication1.Controllers
 
         // SOFT DELETE - Suppression logique
         [HttpPatch("{id}/supprimer")]
-        [Authorize]
+        [RequirePermission("supprimer")]
         public async Task<IActionResult> Supprimer(int id)
         {
             var document = await _context.Documents.FirstOrDefaultAsync(d => d.Id == id);
@@ -50,7 +51,7 @@ namespace WebApplication1.Controllers
 
         // BATCH SOFT DELETE
         [HttpPost("supprimer-batch")]
-        [Authorize]
+        [RequirePermission("supprimer")]
         public async Task<IActionResult> SupprimerBatch([FromBody] List<int> ids)
         {
             if (ids == null || ids.Count == 0)
@@ -98,6 +99,7 @@ namespace WebApplication1.Controllers
 
         // ARCHIVE (PATCH)
         [HttpPatch("{id}/archive")]
+        [RequirePermission("archiver")]
         public async Task<IActionResult> ArchiveDocument(int id)
         {
             var document = await _context.Documents.FindAsync(id);
@@ -112,6 +114,7 @@ namespace WebApplication1.Controllers
 
         // ARCHIVE EN MASSE (POST)
         [HttpPost("archive-batch")]
+        [RequirePermission("archiver")]
         public async Task<IActionResult> ArchiveBatch([FromBody] ArchiveBatchDto dto)
         {
             if (dto.Ids == null || dto.Ids.Count == 0)

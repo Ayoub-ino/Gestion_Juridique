@@ -22,6 +22,9 @@ tmp/
 .vscode/
 *.suo
 
+# Deepwork progress files
+.slim/deepwork/
+
 # OS
 Thumbs.db
 Desktop.ini

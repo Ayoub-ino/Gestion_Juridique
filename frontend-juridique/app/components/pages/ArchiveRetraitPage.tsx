@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 interface Retrait {
   id: number;
@@ -34,6 +35,8 @@ export function ArchiveRetraitPage({
   onClose,
   userNom,
 }: ArchiveRetraitPageProps) {
+  const { hasPermission } = useAuth();
+  const canRetrait = hasPermission("retrait_archive");
   const [effectuePar, setEffectuePar] = useState(userNom || "");
   const [motifRetrait, setMotifRetrait] = useState("");
   const [dateRetour, setDateRetour] = useState("");
@@ -60,6 +63,7 @@ export function ArchiveRetraitPage({
   }, [selectedDoc?.id]);
 
   const handleSave = async () => {
+    if (!canRetrait) { alert(langue === "fr" ? "Action non autorisée" : "إجراء غير مصرح به"); return; }
     if (!selectedDoc || !token) return;
     if (!motifRetrait.trim()) {
       alert(langue === "fr" ? "Le motif du retrait est obligatoire" : "سبب الإخراج مطلوب");
@@ -110,7 +114,9 @@ export function ArchiveRetraitPage({
         alert(langue === "fr" ? "Retrait annulé" : "تم الإلغاء");
         fetchRetraits();
       }
-    } catch {}
+    } catch {
+      alert(langue === "fr" ? "Erreur lors de l'annulation du retrait" : "خطأ في إلغاء الإخراج");
+    }
   };
 
   const handleRetourner = async (id: number) => {
@@ -124,7 +130,9 @@ export function ArchiveRetraitPage({
         alert(langue === "fr" ? "Document retourné" : "تم إرجاع الوثيقة");
         fetchRetraits();
       }
-    } catch {}
+    } catch {
+      alert(langue === "fr" ? "Erreur lors du retour du document" : "خطأ في إرجاع الوثيقة");
+    }
   };
 
   if (!selectedDoc) return null;
@@ -203,6 +211,7 @@ export function ArchiveRetraitPage({
               className="w-full p-2 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 resize-none"
             />
           </div>
+          {canRetrait && (
           <div className="flex justify-end">
             <button
               type="button"
@@ -213,6 +222,7 @@ export function ArchiveRetraitPage({
               {langue === "fr" ? "Enregistrer le retrait" : "تسجيل الإخراج"}
             </button>
           </div>
+          )}
         </div>
 
         <div className="border-t border-slate-200">
@@ -242,6 +252,8 @@ export function ArchiveRetraitPage({
                   retraits.map((r) => (
                     <tr key={r.id} className={`border-b border-slate-100 ${r.estAnnule ? "bg-red-50/50 opacity-60" : "hover:bg-slate-50"}`}>
                       <td className="p-3 space-x-1">
+                        {canRetrait && (
+                        <>
                         <button
                           type="button"
                           onClick={() => handleAnnuler(r.id)}
@@ -258,6 +270,8 @@ export function ArchiveRetraitPage({
                         >
                           {langue === "fr" ? "retourner" : "إرجاع"}
                         </button>
+                        </>
+                        )}
                       </td>
                       <td className="p-3">{r.notes || "-"}</td>
                       <td className="p-3">{r.dateRetour ? new Date(r.dateRetour).toLocaleDateString() : "-"}</td>

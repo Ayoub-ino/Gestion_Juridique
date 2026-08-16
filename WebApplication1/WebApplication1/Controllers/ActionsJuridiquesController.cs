@@ -77,8 +77,8 @@ namespace WebApplication1.Controllers
     public class ActionJuridiqueDto
     {
         public int DossierId { get; set; }
-        public string Service { get; set; }
-        public string Action { get; set; }
+        public string Service { get; set; } = string.Empty;
+        public string Action { get; set; } = string.Empty;
         public string? Commentaire { get; set; }
         public string? Statut { get; set; }
         public string? DonneesJson { get; set; }

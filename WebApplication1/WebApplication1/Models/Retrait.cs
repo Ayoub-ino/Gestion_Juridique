@@ -9,17 +9,17 @@ namespace WebApplication1.Models
 
         [Required]
         public int DocumentId { get; set; }
-        public Document Document { get; set; }
+        public Document Document { get; set; } = null!;
 
         [Required]
-        public string Reference { get; set; }
+        public string Reference { get; set; } = string.Empty;
 
-        public string EffectuePar { get; set; }
+        public string EffectuePar { get; set; } = string.Empty;
 
         [Required]
-        public string MotifRetrait { get; set; }
+        public string MotifRetrait { get; set; } = string.Empty;
 
-        public string Notes { get; set; }
+        public string Notes { get; set; } = string.Empty;
 
         public DateTime DateRetrait { get; set; } = DateTime.Now;
 
@@ -27,6 +27,6 @@ namespace WebApplication1.Models
 
         public bool EstAnnule { get; set; } = false;
 
-        public string ServiceArchives { get; set; }
+        public string ServiceArchives { get; set; } = string.Empty;
     }
 }

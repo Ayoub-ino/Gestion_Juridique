@@ -7,6 +7,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -29,15 +30,17 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("transferer")]
         public async Task<IActionResult> Transfer([FromBody] TransferDto dto)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userId == null) return Unauthorized();
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null || !int.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
 
-            var user = await _context.Utilisateurs.FindAsync(int.Parse(userId));
+            var user = await _context.Utilisateurs.FindAsync(userId);
             if (user == null) return Unauthorized();
 
-            Document document;
+            Document? document;
             switch (dto.DocumentType)
             {
                 case "entrant-admin":
@@ -77,7 +80,7 @@ namespace WebApplication1.Controllers
                     ServiceDestination = dest,
                     DateTransaction = DateTime.Now,
                     Remarques = dto.Message,
-                    UtilisateurId = userId,
+                    UtilisateurId = userId.ToString(),
                     Statut = StatutTransaction.EnAttente,
                     DoitRevenir = dto.DoitRevenir,
                     TargetUserId = dto.TargetUserId,
@@ -133,8 +136,8 @@ namespace WebApplication1.Controllers
     public class TransferDto
     {
         public int DocumentId { get; set; }
-        public string DocumentType { get; set; }
-        public string ServiceDestination { get; set; }
+        public string DocumentType { get; set; } = string.Empty;
+        public string ServiceDestination { get; set; } = string.Empty;
         public string? Message { get; set; }
         public bool DoitRevenir { get; set; }
         public int? TargetUserId { get; set; }

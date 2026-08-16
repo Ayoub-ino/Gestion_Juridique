@@ -52,6 +52,29 @@ namespace WebApplication1.Controllers
             return Ok(users);
         }
 
+        [HttpGet("by-service/{serviceCode}")]
+        [Authorize]
+        public async Task<IActionResult> GetByService(string serviceCode)
+        {
+            var users = await _context.Utilisateurs
+                .Include(u => u.ServiceEntity)
+                .Where(u => u.IsActive && (
+                    u.Service == serviceCode ||
+                    (u.ServiceEntity != null && u.ServiceEntity.Code == serviceCode)
+                ))
+                .Select(u => new {
+                    u.Id,
+                    u.Nom,
+                    u.Login,
+                    u.Service,
+                    ServiceNom = u.ServiceEntity != null ? u.ServiceEntity.Nom : null,
+                    ServiceCode = u.ServiceEntity != null ? u.ServiceEntity.Code : null
+                })
+                .ToListAsync();
+
+            return Ok(users);
+        }
+
         [HttpGet("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetById(int id)

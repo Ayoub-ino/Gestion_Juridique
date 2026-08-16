@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
 using WebApplication1.Helpers;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -81,7 +82,7 @@ namespace WebApplication1.Controllers
 
         // POST: api/CourrierJuridique
         [HttpPost]
-        [Authorize]
+        [RequirePermission("creer_courrier_juridique")]
         public async Task<IActionResult> Post([FromBody] CreateDossierJuridiqueDto dto)
         {
             if (dto == null)
@@ -140,6 +141,7 @@ namespace WebApplication1.Controllers
 
         // PUT: api/CourrierJuridique/{id}
         [HttpPut("{id}")]
+        [RequirePermission("creer_courrier_juridique")]
         public async Task<IActionResult> Put(int id, [FromBody] CreateDossierJuridiqueDto dto)
         {
             var juridique = await _context.DossiersJuridiques.FindAsync(id);
@@ -168,6 +170,7 @@ namespace WebApplication1.Controllers
 
         // DELETE: api/CourrierJuridique/{id} (suppression logique)
         [HttpDelete("{id}")]
+        [RequirePermission("supprimer")]
         public async Task<IActionResult> Delete(int id)
         {
             var juridique = await _context.DossiersJuridiques.FindAsync(id);

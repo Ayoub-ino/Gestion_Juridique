@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
 using WebApplication1.Helpers;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -80,6 +81,7 @@ namespace WebApplication1.Controllers
 
         // ========== 3. CRÉER UN COURRIER ==========
         [HttpPost]
+        [RequirePermission("creer_courrier_admin")]
         public async Task<IActionResult> Create([FromBody] CourrierAdminDto dto)
         {
             try
@@ -193,6 +195,7 @@ namespace WebApplication1.Controllers
         }
         // ========== 4. MODIFIER UN COURRIER ==========
         [HttpPut("{id}")]
+        [RequirePermission("creer_courrier_admin")]
         public async Task<IActionResult> Update(int id, [FromBody] CourrierAdminDto dto)
         {
             var courrier = await _context.CourriersAdministratifs.FindAsync(id);
@@ -217,6 +220,7 @@ namespace WebApplication1.Controllers
 
         // ========== 5. SUPPRIMER UN COURRIER (suppression logique) ==========
         [HttpDelete("{id}")]
+        [RequirePermission("supprimer")]
         public async Task<IActionResult> Delete(int id)
         {
             var courrier = await _context.CourriersAdministratifs.FindAsync(id);
@@ -265,9 +269,9 @@ namespace WebApplication1.Controllers
     public class CourrierAdminListDto
     {
         public int Id { get; set; }
-        public string NumeroOrdre { get; set; }
+        public string NumeroOrdre { get; set; } = string.Empty;
         public string? Expediteur { get; set; }
-        public string Objet { get; set; }
+        public string Objet { get; set; } = string.Empty;
         public string? Sujet { get; set; }
         public DateTime DateCreation { get; set; }
         public string? ServiceActuel { get; set; }
@@ -280,9 +284,9 @@ namespace WebApplication1.Controllers
     }
     public class CourrierAdminDto
     {
-        public string NumeroOrdre { get; set; }
-        public string Expediteur { get; set; }
-        public string Objet { get; set; }
+        public string NumeroOrdre { get; set; } = string.Empty;
+        public string Expediteur { get; set; } = string.Empty;
+        public string Objet { get; set; } = string.Empty;
         public DateTime? DateReception { get; set; }
         public string? TypeCircuit { get; set; }
         public string? FilePath { get; set; }

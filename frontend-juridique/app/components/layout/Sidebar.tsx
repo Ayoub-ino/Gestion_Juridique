@@ -157,7 +157,7 @@ export function Sidebar({
             </button>
             {isAdmin && (
               <button onClick={() => setVueActive("admin-permissions")} className={navButtonClass(vueActive === "admin-permissions")}>
-                {langue === "fr" ? "Permissions" : "الصلاحيات"}
+                {cur.permissions}
               </button>
             )}
             <button onClick={() => setVueActive("admin-equipements")} className={navButtonClass(vueActive === "admin-equipements")}>

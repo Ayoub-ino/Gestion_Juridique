@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { translations } from '@/lib/translations';
 import type { Langue } from '@/app/types';
 
 export default function LoginPage({ langue = "ar" }: { langue?: Langue }) {
@@ -10,27 +11,7 @@ export default function LoginPage({ langue = "ar" }: { langue?: Langue }) {
   const [error, setError] = useState('');
   const { login: loginUser } = useAuth();
   const [lang, setLang] = useState<Langue>(langue);
-
-  const t = {
-    fr: {
-      title: "Cour d'Appel Administrative",
-      subtitle: "Connexion à la plateforme de gestion",
-      identifiant: "Identifiant",
-      motDePasse: "Mot de passe",
-      seConnecter: "Se connecter",
-      errorPrefix: "Erreur",
-    },
-    ar: {
-      title: "الاستئنافية الإدارية",
-      subtitle: "الوصول إلى منصة التدبير",
-      identifiant: "اسم المستخدم",
-      motDePasse: "كلمة المرور",
-      seConnecter: "تسجيل الدخول",
-      errorPrefix: "خطأ",
-    }
-  };
-
-  const current = t[lang];
+  const cur = translations[lang];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,13 +39,13 @@ export default function LoginPage({ langue = "ar" }: { langue?: Langue }) {
           <div className="flex justify-center mb-4">
             <img src="https://upload.wikimedia.org/wikipedia/commons/d/d5/Coat_of_arms_of_Morocco.svg" alt="Blason" className="w-16 h-16" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800">{current.title}</h2>
-          <p className="text-sm text-slate-500">{current.subtitle}</p>
+          <h2 className="text-xl font-bold text-slate-800">{cur.courAppel}</h2>
+          <p className="text-sm text-slate-500">{cur.loginSubtitle}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-700">{current.identifiant}</label>
+            <label className="block text-sm font-medium text-slate-700">{cur.login}</label>
             <input
               type="text"
               value={login}
@@ -74,7 +55,7 @@ export default function LoginPage({ langue = "ar" }: { langue?: Langue }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700">{current.motDePasse}</label>
+            <label className="block text-sm font-medium text-slate-700">{cur.motDePasse}</label>
             <input
               type="password"
               value={password}
@@ -88,7 +69,7 @@ export default function LoginPage({ langue = "ar" }: { langue?: Langue }) {
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition"
           >
-            {current.seConnecter}
+            {cur.seConnecter}
           </button>
         </form>
       </div>

@@ -288,7 +288,7 @@ export function JuridiqueForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2">
-              {langue === "fr" ? "Document lié" : "وثيقة مرتبطة"}
+              {cur.docsReference}
             </label>
             <select
               value={docLie}
@@ -302,7 +302,7 @@ export function JuridiqueForm({
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2">
-              {langue === "fr" ? "Dossier principal" : "ملف رئيسي"}
+              {cur.dossierPrincipal}
             </label>
             <select
               value={dossierPrincipal}
@@ -320,7 +320,7 @@ export function JuridiqueForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2">
-              {langue === "fr" ? "Source du document lié" : "مصدر الوثيقة المرتبطة"} <span className="text-red-500">*</span>
+              {cur.source_service} <span className="text-red-500">*</span>
             </label>
             <select
               value={sourceDocLie}
@@ -336,14 +336,14 @@ export function JuridiqueForm({
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2">
-              {langue === "fr" ? "Dossier parent" : "الملف الأصلي"}
+              {cur.parentDossier}
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={parentDossier}
                 readOnly
-                placeholder={langue === "fr" ? "Aucun dossier sélectionné" : "لم يتم اختيار ملف"}
+                placeholder={cur.aucune_doc_reference}
                 className="flex-1 border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
               />
               <button
@@ -351,7 +351,7 @@ export function JuridiqueForm({
                 onClick={handleSelectParentFolder}
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition whitespace-nowrap"
               >
-                {langue === "fr" ? "Parcourir" : "استعراض"}
+                {cur.parcourir}
               </button>
             </div>
           </div>
@@ -399,7 +399,7 @@ export function JuridiqueForm({
               onChange={(e) => setJuridiqueEtat(e.target.value)}
               className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
             >
-              <option value="">{langue === "fr" ? "Choisir l'état" : "اختر الحالة"}</option>
+              <option value="">{cur.choisirEtat}</option>
               {getEtatOptions().map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
@@ -431,7 +431,7 @@ export function JuridiqueForm({
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2">
-              {langue === "fr" ? "Type de dossier" : "نوع الملف"}
+              {cur.tblType}
             </label>
             <select
               value={typeDossier}
@@ -450,7 +450,7 @@ export function JuridiqueForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2">
-              {langue === "fr" ? "N° première instance" : "رقم المحكمة الابتدائية"}
+              {cur.numeroPremiereInstance}
             </label>
             <input
               type="text"
@@ -489,7 +489,7 @@ export function JuridiqueForm({
       {/* ===== WORKFLOW DYNAMIQUE (5 CERCLES) ===== */}
       <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
         <h3 className="font-bold text-slate-800 text-sm mb-4 text-center">
-          {langue === "fr" ? "Circuit du dossier" : "مسار الملف"}
+          {cur.fluxDossier}
         </h3>
         <div className="flex items-center justify-between relative before:absolute before:bg-slate-200 before:h-1 before:w-full before:top-1/2 before:-translate-y-1/2 before:z-0 mb-6 px-4">
           {workflowStepsJuridique.map((step) => {
@@ -516,7 +516,7 @@ export function JuridiqueForm({
                 </span>
                 {isCurrent && (
                   <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full">
-                    {langue === "fr" ? "Actuel" : "الحالي"}
+                    {cur.serviceActuel}
                   </span>
                 )}
               </div>
@@ -524,10 +524,7 @@ export function JuridiqueForm({
           })}
         </div>
         <div className="text-center text-xs text-slate-500 mt-2">
-          {langue === "fr"
-            ? `Étape actuelle : ${workflowStepsJuridique.find(s => s.id === etapeService)?.label || "Non commencé"}`
-            : `المرحلة الحالية : ${workflowStepsJuridique.find(s => s.id === etapeService)?.label || "لم يبدأ"}`
-          }
+          {`${cur.etapeActuelle} : ${workflowStepsJuridique.find(s => s.id === etapeService)?.label || cur.nonCommence}`}
         </div>
       </div>
 
@@ -643,7 +640,7 @@ export function JuridiqueForm({
                       type="text"
                       value={numeroDossierAppel}
                       onChange={(e) => setNumeroDossierAppel(e.target.value)}
-                      placeholder={langue === "fr" ? "Ex: 2026/12345" : "مثال: 2026/12345"}
+                      placeholder={cur.recherche_exemple}
                       className="w-full p-2 border border-slate-300 rounded-lg text-xs"
                     />
                   </div>
@@ -700,7 +697,7 @@ export function JuridiqueForm({
                       type="text"
                       value={numCourAppel}
                       onChange={(e) => setNumCourAppel(e.target.value)}
-                      placeholder={langue === "fr" ? "Ex: 2026/67890" : "مثال: 2026/67890"}
+                      placeholder={cur.recherche_exemple}
                       className="w-full p-2 border border-slate-300 rounded-lg text-xs"
                     />
                   </div>

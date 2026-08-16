@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Langue } from "@/app/types";
+import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, WORKFLOW_STEPS, getWorkflowProgress, getRoleLabel } from "@/lib/constants";
 import { ExportFormat } from "@/lib/exportImport";
 
@@ -75,6 +76,8 @@ interface Props {
 type Tab = "info" | "notes" | "historique";
 
 export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, onTransfer }: Props) {
+  const { hasPermission } = useAuth();
+  const canAddNotes = hasPermission("ajouter_notes");
   const [tab, setTab] = useState<Tab>("info");
   const [doc, setDoc] = useState<WorkspaceDoc | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -183,6 +186,7 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
   };
 
   const handleAddNote = async () => {
+    if (!canAddNotes) { alert(cur.permissionRefusee); return; }
     if (!doc || !token || !newNote.trim()) return;
     try {
       const res = await fetch(`${BASE_URL}/api/Workspace/document/${doc.id}/notes`, {
@@ -197,6 +201,7 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
   };
 
   const handleUpdateNote = async (noteId: number) => {
+    if (!canAddNotes) { alert(cur.permissionRefusee); return; }
     if (!token || !editingNoteText.trim()) return;
     try {
       const res = await fetch(`${BASE_URL}/api/Workspace/notes/${noteId}`, {
@@ -211,6 +216,7 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
   };
 
   const handleDeleteNote = async (noteId: number) => {
+    if (!canAddNotes) { alert(cur.permissionRefusee); return; }
     if (!token) return;
     if (!window.confirm(langue === "fr" ? "Supprimer cette note ?" : "هل تريد حذف هذه الملاحظة؟")) return;
     try {
@@ -276,7 +282,7 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
         <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-              {langue === "fr" ? "Espace de travail" : "مساحة العمل"}
+              {cur.espaceTravail}
             </h2>
             {doc && (
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -287,16 +293,16 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
           <div className="flex items-center gap-2">
             {!editMode && (
               <button onClick={startEdit} className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-[11px] font-bold border border-amber-200 hover:bg-amber-100">
-                {langue === "fr" ? "Modifier" : "تعديل"}
+                {cur.modifierLabel}
               </button>
             )}
             {editMode && (
               <>
                 <button onClick={handleSave} disabled={saving} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 disabled:opacity-50">
-                  {saving ? "..." : (langue === "fr" ? "Sauvegarder" : "حفظ")}
+                  {saving ? "..." : cur.sauvegarderLabel}
                 </button>
                 <button onClick={() => { setEditMode(false); setEditFields({}); }} className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold">
-                  {langue === "fr" ? "Annuler" : "إلغاء"}
+                  {cur.annulerLabel}
                 </button>
               </>
             )}
@@ -305,11 +311,11 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
                 onClick={() => onTransfer(doc)}
                 className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-bold border border-indigo-200 hover:bg-indigo-100"
               >
-                {langue === "fr" ? "Transférer" : "تحويل"}
+                {cur.transferer}
               </button>
             )}
             <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold">
-              {langue === "fr" ? "Fermer" : "إغلاق"}
+              {cur.fermerLabel}
             </button>
           </div>
         </div>
@@ -326,9 +332,9 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
                   : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
-              {t === "info" ? (langue === "fr" ? "Informations" : "المعلومات") :
-               t === "notes" ? (langue === "fr" ? `Notes (${notes.length})` : `ملاحظات (${notes.length})`) :
-               (langue === "fr" ? `Historique (${modifications.length})` : `السجل (${modifications.length})`)}
+              {t === "info" ? cur.infoTab :
+               t === "notes" ? `${cur.notesTab} (${notes.length})` :
+               `${cur.historiqueTab} (${modifications.length})`}
             </button>
           ))}
         </div>
@@ -336,38 +342,38 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {loading ? (
-            <div className="text-center py-12 text-slate-400 text-xs">{langue === "fr" ? "Chargement..." : "جاري التحميل..."}</div>
+            <div className="text-center py-12 text-slate-400 text-xs">{cur.loadingText}</div>
           ) : !doc ? (
-            <div className="text-center py-12 text-slate-400 text-xs">{langue === "fr" ? "Document non trouvé" : "لم يتم العثور على المستند"}</div>
+            <div className="text-center py-12 text-slate-400 text-xs">{cur.docNonTrouve}</div>
           ) : (
             <>
               {/* TAB: Info */}
               {tab === "info" && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {doc.NumeroOrdre && renderField(langue === "fr" ? "N° Ordre" : "رقم الطلب", "NumeroOrdre", doc.NumeroOrdre)}
-                    {doc.NumeroReference && renderField(langue === "fr" ? "Référence" : "المرجع", "NumeroReference", doc.NumeroReference)}
-                    {doc.NumeroDossierJuridique && renderField(langue === "fr" ? "N° Dossier" : "رقم الملف", "NumeroDossierJuridique", doc.NumeroDossierJuridique)}
-                    {doc.NumeroEnvoi && renderField(langue === "fr" ? "N° Envoi" : "رقم الإرسال", "NumeroEnvoi", doc.NumeroEnvoi)}
-                    {renderField(langue === "fr" ? "Objet" : "الموضوع", "Objet", doc.Objet)}
-                    {doc.Sujet && renderField(langue === "fr" ? "Sujet" : "العنوان", "Sujet", doc.Sujet)}
-                    {doc.Expediteur && renderField(langue === "fr" ? "Expéditeur" : "المرسل", "Expediteur", doc.Expediteur)}
-                    {doc.Demandeur && renderField(langue === "fr" ? "Demandeur" : "المطالب", "Demandeur", doc.Demandeur)}
-                    {doc.DestinataireExterne && renderField(langue === "fr" ? "Destinataire" : "المستفيد", "DestinataireExterne", doc.DestinataireExterne)}
-                    {doc.TypeCircuit && renderField(langue === "fr" ? "Type circuit" : "نوع الدائرة", "TypeCircuit", doc.TypeCircuit)}
-                    {doc.MotifException && renderField(langue === "fr" ? "Motif exception" : "سبب الاستثناء", "MotifException", doc.MotifException)}
-                    {doc.EtatGlobal && renderField(langue === "fr" ? "État global" : "الحالة العامة", "EtatGlobal", doc.EtatGlobal)}
-                    {doc.EtapeJalsatActuelle && renderField(langue === "fr" ? "Étape Jalsat" : "مرحلة الجلسات", "EtapeJalsatActuelle", doc.EtapeJalsatActuelle)}
-                    {doc.Circuit && renderField(langue === "fr" ? "Circuit" : "الدائرة", "Circuit", doc.Circuit)}
-                    {doc.JalsatTransaction && renderField(langue === "fr" ? "Jalsat Transaction" : "عملية الجلسات", "JalsatTransaction", doc.JalsatTransaction)}
-                    {doc.TaslimTransaction && renderField(langue === "fr" ? "Taslim Transaction" : "عملية التسليم", "TaslimTransaction", doc.TaslimTransaction)}
-                    {doc.AutoriteRetrait && renderField(langue === "fr" ? "Autorité retrait" : "جهة السحب", "AutoriteRetrait", doc.AutoriteRetrait)}
-                    {doc.TribunalOrigine && renderField(langue === "fr" ? "Tribunal origine" : "المحكمة المصدرة", "TribunalOrigine", doc.TribunalOrigine)}
-                    {doc.TribunalDestination && renderField(langue === "fr" ? "Tribunal destination" : "المحكمة الوجهة", "TribunalDestination", doc.TribunalDestination)}
+                    {doc.NumeroOrdre && renderField(cur.noOrdre, "NumeroOrdre", doc.NumeroOrdre)}
+                    {doc.NumeroReference && renderField(cur.tblRef, "NumeroReference", doc.NumeroReference)}
+                    {doc.NumeroDossierJuridique && renderField(cur.noDossier, "NumeroDossierJuridique", doc.NumeroDossierJuridique)}
+                    {doc.NumeroEnvoi && renderField(cur.noEnvoi, "NumeroEnvoi", doc.NumeroEnvoi)}
+                    {renderField(cur.tblTitre, "Objet", doc.Objet)}
+                    {doc.Sujet && renderField(cur.sujet, "Sujet", doc.Sujet)}
+                    {doc.Expediteur && renderField(cur.expediteur, "Expediteur", doc.Expediteur)}
+                    {doc.Demandeur && renderField(cur.demandeur, "Demandeur", doc.Demandeur)}
+                    {doc.DestinataireExterne && renderField(cur.destinataireLabel, "DestinataireExterne", doc.DestinataireExterne)}
+                    {doc.TypeCircuit && renderField(cur.typeCircuit, "TypeCircuit", doc.TypeCircuit)}
+                    {doc.MotifException && renderField(cur.motifException, "MotifException", doc.MotifException)}
+                    {doc.EtatGlobal && renderField(cur.etatGlobal, "EtatGlobal", doc.EtatGlobal)}
+                    {doc.EtapeJalsatActuelle && renderField(cur.etapeJalsat, "EtapeJalsatActuelle", doc.EtapeJalsatActuelle)}
+                    {doc.Circuit && renderField(cur.circuit, "Circuit", doc.Circuit)}
+                    {doc.JalsatTransaction && renderField(cur.jalsatSection, "JalsatTransaction", doc.JalsatTransaction)}
+                    {doc.TaslimTransaction && renderField(cur.taslimSection, "TaslimTransaction", doc.TaslimTransaction)}
+                    {doc.AutoriteRetrait && renderField(cur.choisirRetrait, "AutoriteRetrait", doc.AutoriteRetrait)}
+                    {doc.TribunalOrigine && renderField(cur.tribunalOrigine, "TribunalOrigine", doc.TribunalOrigine)}
+                    {doc.TribunalDestination && renderField(cur.tribunalDestination, "TribunalDestination", doc.TribunalDestination)}
                   </div>
 
                   <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">{langue === "fr" ? "Service actuel" : "المصلحة الحالية"}</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">{cur.serviceActuel}</span>
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{getServiceLabel(doc.ServiceActuel)}</p>
                   </div>
                 </div>
@@ -376,21 +382,23 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
               {/* TAB: Notes */}
               {tab === "notes" && (
                 <div className="space-y-4">
+                  {canAddNotes && (
                   <div className="flex gap-2">
                     <textarea
                       rows={2}
                       value={newNote}
                       onChange={(e) => setNewNote(e.target.value)}
-                      placeholder={langue === "fr" ? "Ajouter une note..." : "أضف ملاحظة..."}
+                      placeholder={cur.ajouterNote}
                       className="flex-1 p-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs outline-none focus:border-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 resize-none"
                     />
                     <button onClick={handleAddNote} disabled={!newNote.trim()} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-40 self-end">
-                      {langue === "fr" ? "Ajouter" : "إضافة"}
+                      {cur.ajouterLabel}
                     </button>
                   </div>
+                  )}
 
                   {notes.length === 0 ? (
-                    <p className="text-center text-slate-400 text-xs py-8">{langue === "fr" ? "Aucune note" : "لا توجد ملاحظات"}</p>
+                    <p className="text-center text-slate-400 text-xs py-8">{cur.aucuneNote}</p>
                   ) : (
                     <div className="space-y-2">
                       {notes.map((n) => (
@@ -400,8 +408,8 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
                               <textarea rows={2} value={editingNoteText} onChange={(e) => setEditingNoteText(e.target.value)}
                                 className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded text-xs outline-none bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 resize-none" />
                               <div className="flex gap-1">
-                                <button onClick={() => handleUpdateNote(n.id)} className="px-2 py-1 rounded bg-blue-600 text-white text-[10px] font-bold">{langue === "fr" ? "Sauvegarder" : "حفظ"}</button>
-                                <button onClick={() => setEditingNoteId(null)} className="px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold">{langue === "fr" ? "Annuler" : "إلغاء"}</button>
+                                <button onClick={() => handleUpdateNote(n.id)} className="px-2 py-1 rounded bg-blue-600 text-white text-[10px] font-bold">{cur.sauvegarderLabel}</button>
+                                <button onClick={() => setEditingNoteId(null)} className="px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold">{cur.annulerLabel}</button>
                               </div>
                             </div>
                           ) : (
@@ -410,12 +418,14 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
                               <div className="flex justify-between items-center mt-2">
                                 <span className="text-[10px] text-slate-400">
                                   {n.auteur} — {getServiceLabel(n.service)} — {new Date(n.dateCreation).toLocaleDateString()}
-                                  {n.dateModification && ` (${langue === "fr" ? "modifié" : "عدل"})`}
+                                  {n.dateModification && ` (${cur.modifie})`}
                                 </span>
+                                {canAddNotes && (
                                 <div className="flex gap-1">
-                                  <button onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.contenu); }} className="text-[10px] text-blue-500 hover:text-blue-700 font-bold">{langue === "fr" ? "Modifier" : "تعديل"}</button>
-                                  <button onClick={() => handleDeleteNote(n.id)} className="text-[10px] text-red-500 hover:text-red-700 font-bold">{langue === "fr" ? "Supprimer" : "حذف"}</button>
+                                  <button onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.contenu); }} className="text-[10px] text-blue-500 hover:text-blue-700 font-bold">{cur.modifier}</button>
+                                  <button onClick={() => handleDeleteNote(n.id)} className="text-[10px] text-red-500 hover:text-red-700 font-bold">{cur.supprimer}</button>
                                 </div>
+                                )}
                               </div>
                             </>
                           )}
@@ -430,7 +440,7 @@ export function WorkspaceModal({ docId, onClose, token, BASE_URL, langue, cur, o
               {tab === "historique" && (
                 <div className="space-y-4">
                   {modifications.length === 0 ? (
-                    <p className="text-center text-slate-400 text-xs py-8">{langue === "fr" ? "Aucune modification enregistrée" : "لم يتم تسجيل أي تعديل"}</p>
+                    <p className="text-center text-slate-400 text-xs py-8">{cur.aucuneModification}</p>
                   ) : (
                     <div className="space-y-2">
                       {modifications.map((m) => (

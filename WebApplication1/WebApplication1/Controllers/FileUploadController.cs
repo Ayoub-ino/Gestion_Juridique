@@ -102,12 +102,14 @@ namespace WebApplication1.Controllers
         [HttpGet("{storedName}")]
         public IActionResult Download(string storedName)
         {
+            // Security: sanitize path to prevent directory traversal
+            var safeName = Path.GetFileName(storedName);
             var folder = GetUploadsFolder();
-            var filePath = Path.Combine(folder, storedName);
+            var filePath = Path.Combine(folder, safeName);
             if (!System.IO.File.Exists(filePath))
                 return NotFound(new { error = "Fichier non trouvé" });
 
-            var ext = Path.GetExtension(storedName).ToLower();
+            var ext = Path.GetExtension(safeName).ToLower();
             var contentType = ext switch
             {
                 ".pdf" => "application/pdf",
@@ -132,12 +134,14 @@ namespace WebApplication1.Controllers
         [HttpGet("preview/{storedName}")]
         public IActionResult Preview(string storedName)
         {
+            // Security: sanitize path to prevent directory traversal
+            var safeName = Path.GetFileName(storedName);
             var folder = GetUploadsFolder();
-            var filePath = Path.Combine(folder, storedName);
+            var filePath = Path.Combine(folder, safeName);
             if (!System.IO.File.Exists(filePath))
                 return NotFound(new { error = "Fichier non trouvé" });
 
-            var ext = Path.GetExtension(storedName).ToLower();
+            var ext = Path.GetExtension(safeName).ToLower();
             var fileBytes = System.IO.File.ReadAllBytes(filePath);
             var headerUtf8 = Encoding.UTF8.GetString(fileBytes, 0, Math.Min(fileBytes.Length, 100)).TrimStart('\uFEFF', ' ', '\t', '\r', '\n');
 
@@ -155,7 +159,9 @@ namespace WebApplication1.Controllers
                 {
                     using var stream = new MemoryStream(fileBytes);
                     using var doc = WordprocessingDocument.Open(stream, false);
-                    var body = doc.MainDocumentPart.Document.Body;
+                    var body = doc.MainDocumentPart?.Document?.Body;
+                    if (body == null)
+                        return Content(BuildErrorHtml("Corps du document .docx introuvable"), "text/html", Encoding.UTF8);
                     var sb = new StringBuilder();
 
                     foreach (var element in body.Elements())
@@ -222,12 +228,18 @@ namespace WebApplication1.Controllers
                     using var stream = new MemoryStream(fileBytes);
                     using var doc = SpreadsheetDocument.Open(stream, false);
                     var workbookPart = doc.WorkbookPart;
+                    if (workbookPart?.Workbook?.Sheets == null)
+                        return Content(BuildErrorHtml("Classeur Excel introuvable"), "text/html", Encoding.UTF8);
                     var sb = new StringBuilder();
 
                     foreach (var sheet in workbookPart.Workbook.Sheets.Elements<Sheet>())
                     {
                         var sheetId = sheet.Id;
-                        var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheetId);
+                        if (string.IsNullOrEmpty(sheetId))
+                            continue;
+                        var worksheetPart = (WorksheetPart?)workbookPart.GetPartById(sheetId!);
+                        if (worksheetPart?.Worksheet == null)
+                            continue;
                         var rows = worksheetPart.Worksheet.Descendants<Row>();
 
                         sb.AppendLine("<table>");
@@ -240,7 +252,7 @@ namespace WebApplication1.Controllers
                                 if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString)
                                 {
                                     var ssId = int.Parse(cellValue);
-                                    cellValue = workbookPart.SharedStringTablePart.SharedStringTable.Elements<SharedStringItem>().ElementAt(ssId).Text?.Text ?? "";
+                                    cellValue = workbookPart.SharedStringTablePart?.SharedStringTable?.Elements<SharedStringItem>().ElementAt(ssId).Text?.Text ?? "";
                                 }
                                 sb.AppendLine($"<td>{System.Net.WebUtility.HtmlEncode(cellValue ?? "")}</td>");
                             }

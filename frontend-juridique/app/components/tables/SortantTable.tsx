@@ -13,6 +13,7 @@ interface SortantTableProps {
   onTransfer: (doc: CourrierSimule) => void;
   onDelete: (doc: CourrierSimule) => void;
   onOpen?: (doc: CourrierSimule) => void;
+  canDelete?: boolean;
   onMarquerEnvoye: (id: number) => void;
   onMarquerAttente: (id: number) => void;
   onAnnuler: (id: number) => void;
@@ -29,6 +30,7 @@ export function SortantTable({
   onTransfer,
   onDelete,
   onOpen,
+  canDelete = true,
   onMarquerEnvoye,
   onMarquerAttente,
   onAnnuler,
@@ -79,9 +81,9 @@ border-emerald-200 hover:bg-emerald-100">export excel</button>
               <th className="p-3 text-start">{cur.tblType}</th>
               <th className="p-3 text-start">{cur.tblDate}</th>
               <th className="p-3 text-start">{cur.tblSource}</th>
-              <th className="p-3 text-start">{langue === "fr" ? "Tribunal origine" : "المحكمة المصدرة"}</th>
-              <th className="p-3 text-start">{langue === "fr" ? "Tribunal dest." : "المحكمة المستقبلة"}</th>
-              <th className="p-3 text-center">{langue === "fr" ? "Avancement" : "التقدم"}</th>
+              <th className="p-3 text-start">{cur.tribunalOrigine}</th>
+              <th className="p-3 text-start">{cur.tribunalDestination}</th>
+              <th className="p-3 text-center">{cur.avancement}</th>
               <th className="p-3 text-center">{cur.tblActions}</th>
             </tr>
           </thead>
@@ -138,7 +140,9 @@ border-emerald-200 hover:bg-emerald-100">export excel</button>
                         <button onClick={() => onAnnuler(doc.id)} className="text-red-600 hover:text-red-800 font-bold px-2 py-1 rounded hover:bg-red-50">{cur.annulerCourrier}</button>
                       )}
                       <button onClick={() => onTransfer(doc)} className="text-slate-600 hover:text-slate-800 font-bold px-2 py-1 rounded hover:bg-slate-50">{cur.btnSuivant}</button>
-                      <button onClick={() => onDelete(doc)} className="text-red-600 hover:text-red-800 font-bold px-2 py-1 rounded hover:bg-red-50">{cur.btnSupprimer}</button>
+                      {canDelete && (
+                        <button onClick={() => onDelete(doc)} className="text-red-600 hover:text-red-800 font-bold px-2 py-1 rounded hover:bg-red-50">{cur.btnSupprimer}</button>
+                      )}
                     </td>
                   </tr>
                 );

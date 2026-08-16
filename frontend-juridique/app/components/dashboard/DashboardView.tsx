@@ -26,6 +26,7 @@ interface DashboardViewProps {
   onViewDoc: (doc: CourrierSimule) => void;
   onTransferDoc: (doc: CourrierSimule) => void;
   onDeleteDoc: (doc: CourrierSimule) => void;
+  canDelete?: boolean;
   onMarquerEnvoye: (id: number) => void;
   onMarquerAttente: (id: number) => void;
   onAnnuler: (id: number) => void;
@@ -61,6 +62,7 @@ export function DashboardView({
   onViewDoc,
   onTransferDoc,
   onDeleteDoc,
+  canDelete = true,
   onMarquerEnvoye,
   onMarquerAttente,
   onAnnuler,
@@ -85,7 +87,7 @@ export function DashboardView({
       {recentActivity.length > 0 && (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
           <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-3">
-            {langue === "fr" ? "Activite recente" : "النشاط الأخير"}
+            {cur.activiteRecente}
           </h3>
           <div className="flex gap-3 overflow-x-auto pb-2">
             {recentActivity.slice(0, 6).map((a: any, i: number) => (
@@ -117,16 +119,16 @@ export function DashboardView({
           <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
             <div>
               <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                {langue === "fr" ? "Nombre de dossiers par service" : "عدد الملفات حسب المصلحة"}
+                {cur.dossiersParService}
               </h3>
               <p className="text-[9px] text-slate-400 mt-0.5">
-                {langue === "fr" ? "Volume de travail actuel de chaque service" : "حجم العمل الحالي لكل مصلحة"}
+                {cur.volumeTravailParService}
               </p>
             </div>
             <div className="flex gap-3 text-[9px]">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>{langue === "fr" ? "Faible" : "منخفض"}</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"></span>{langue === "fr" ? "Moyen" : "متوسط"}</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span>{langue === "fr" ? "Eleve" : "مرتفع"}</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>{cur.faible}</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"></span>{cur.moyen}</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span>{cur.eleve}</span>
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -182,6 +184,7 @@ export function DashboardView({
         onTransfer={onTransferDoc}
         onDelete={onDeleteDoc}
         onOpen={onOpenDoc}
+        canDelete={canDelete}
         cur={cur}
         langue={langue}
         onExport={onExportGeneral}
@@ -199,6 +202,7 @@ export function DashboardView({
         onTransfer={onTransferDoc}
         onDelete={onDeleteDoc}
         onOpen={onOpenDoc}
+        canDelete={canDelete}
         onMarquerEnvoye={onMarquerEnvoye}
         onMarquerAttente={onMarquerAttente}
         onAnnuler={onAnnuler}
