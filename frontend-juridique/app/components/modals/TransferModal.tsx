@@ -1,9 +1,10 @@
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { CourrierSimule, Langue } from "@/app/types";
-import { SERVICE_GROUPS, PARENT_CHILDREN, getChildrenOf, isParentService } from "@/lib/constants";
+import { SERVICE_GROUPS, getChildrenOf, isParentService } from "@/lib/constants";
 import { api } from "@/lib/api/client";
 
 interface TransferModalProps {
@@ -17,7 +18,7 @@ interface TransferModalProps {
   transferMustReturn: boolean;
   setTransferMustReturn: (b: boolean) => void;
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   targetUserId: number | null;
   setTargetUserId: (id: number | null) => void;
 }
@@ -37,8 +38,6 @@ export function TransferModal({
   targetUserId,
   setTargetUserId
 }: TransferModalProps) {
-  if (!doc) return null;
-
   const { token } = useAuth();
   const [serviceUsers, setServiceUsers] = useState<{ id: number; nom: string }[]>([]);
 
@@ -77,7 +76,7 @@ export function TransferModal({
       }
     };
     fetchUsers();
-  }, [selectedServices, token]);
+  }, [selectedServices, token, setTargetUserId]);
 
   const allChildValues = SERVICE_GROUPS.flatMap(g => g.children.map(c => c.value));
 
@@ -135,6 +134,8 @@ export function TransferModal({
     const children = getChildrenOf(parentValue);
     return children.some((c) => selectedServices.includes(c)) && !isParentFullySelected(parentValue);
   };
+
+  if (!doc) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

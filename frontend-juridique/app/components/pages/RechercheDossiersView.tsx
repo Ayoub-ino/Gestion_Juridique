@@ -1,12 +1,13 @@
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
 import { CourrierSimule, Langue } from "@/app/types";
 import { normalizeStatus } from "@/lib/utils";
 import { exportRows } from "@/lib/exportImport";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   visibleCourriers: CourrierSimule[];
   searchTerm: string;
   setSearchTerm: (s: string) => void;

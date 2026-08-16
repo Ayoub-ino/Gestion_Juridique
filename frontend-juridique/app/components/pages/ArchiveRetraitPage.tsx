@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import type { TranslationKeys } from "@/lib/translations";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api/client";
 
@@ -19,7 +20,7 @@ interface Retrait {
 
 interface ArchiveRetraitPageProps {
   langue: "fr" | "ar";
-  cur: any;
+  cur: TranslationKeys;
   token: string | null;
   selectedDoc: { id: number; reference: string; objet: string } | null;
   onClose: () => void;
@@ -44,16 +45,16 @@ export function ArchiveRetraitPage({
   const [retraits, setRetraits] = useState<Retrait[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchRetraits = async () => {
+  const fetchRetraits = useCallback(async () => {
     if (!selectedDoc || !token) return;
     try {
       setRetraits(await api.get<Retrait[]>(`/api/Retrait/document/${selectedDoc.id}`, token));
     } catch {}
-  };
+  }, [selectedDoc, token]);
 
   useEffect(() => {
     fetchRetraits();
-  }, [selectedDoc?.id]);
+  }, [fetchRetraits]);
 
   const handleSave = async () => {
     if (!canRetrait) { alert(langue === "fr" ? "Action non autorisée" : "إجراء غير مصرح به"); return; }

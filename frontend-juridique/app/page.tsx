@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import LoginPage from "@/app/components/pages/LoginPage";
 
@@ -31,7 +31,7 @@ import { ArchivesView } from "@/app/components/pages/ArchivesView";
 import { RechercheDossiersView } from "@/app/components/pages/RechercheDossiersView";
 
 import { translations } from "@/lib/translations";
-import { normalizeStatus, getDocKey } from "@/lib/utils";
+import { normalizeStatus, getDocKey, getErrorMessage } from "@/lib/utils";
 import { getServiceLabel, getStatusLabel, USER_SERVICE_TO_ENUM, WORKFLOW_STEPS } from "@/lib/constants";
 import { useDocuments } from "@/app/hooks/useDocuments";
 import { exportRows, importFromFile, downloadExcelTemplate, ExportFormat, ExportRow } from "@/lib/exportImport";
@@ -81,7 +81,7 @@ export default function Home() {
   const [reference, setReference] = useState("");
   const [tiers, setTiers] = useState("");
   const [objet, setObjet] = useState("");
-  const [destinataireExterne, setDestinataireExterne] = useState("");
+  const [, setDestinataireExterne] = useState("");
   const [dateEnvoi, setDateEnvoi] = useState("");
 
   const [source, setSource] = useState("");
@@ -141,7 +141,7 @@ export default function Home() {
   const [workflowDocId, setWorkflowDocId] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [historiqueActions, setHistoriqueActions] = useState<TransactionHistoryEntry[]>([]);
-  const [hiddenDocKeys, setHiddenDocKeys] = useState<string[]>([]);
+  const [hiddenDocKeys] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [docOverrides, setDocOverrides] = useState<Record<number, Partial<CourrierSimule>>>({});
   const [transferModalDoc, setTransferModalDoc] = useState<CourrierSimule | null>(null);
@@ -152,7 +152,7 @@ export default function Home() {
   const [pendingNotifications, setPendingNotifications] = useState(0);
   const [selectedDocIds, setSelectedDocIds] = useState<number[]>([]);
   const [transactionStats, setTransactionStats] = useState({ total: 0, acceptes: 0, refuses: 0, enAttente: 0, pourcentage: 0 });
-  const [localRetraits, setLocalRetraits] = useState<LocalRetrait[]>([]);
+  const [localRetraits] = useState<LocalRetrait[]>([]);
   const [showRetournerModal, setShowRetournerModal] = useState(false);
   const [retournerDocs, setRetournerDocs] = useState<RetournerDoc[]>([]);
   const [filtreStatutSortant, setFiltreStatutSortant] = useState("tous");
@@ -163,12 +163,12 @@ export default function Home() {
   const [retraitDoc, setRetraitDoc] = useState<{ id: number; reference: string; objet: string } | null>(null);
   const [batchTransferDocs, setBatchTransferDocs] = useState<CourrierSimule[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [, setErrorMessage] = useState("");
   const [workspaceDocId, setWorkspaceDocId] = useState<number | null>(null);
 
   const { listeCourriers, refetch } = useDocuments(token, langue, vueActive);
 
-  const fetchPending = async () => {
+  const fetchPending = useCallback(async () => {
     if (!token) return;
     try {
       const data = await api.get<{ count: number }>("/api/Transactions/count-pending", token);
@@ -176,25 +176,23 @@ export default function Home() {
       const statsData = await api.get<typeof transactionStats>("/api/Transactions/stats", token);
       setTransactionStats(statsData);
     } catch (err) { console.error("Fetch pending error:", err); alert(cur.erreurChargement); }
-  };
+  }, [token, cur]);
 
   useEffect(() => {
     if (!token) return;
     fetchPending();
     const interval = setInterval(fetchPending, 30000);
     return () => clearInterval(interval);
-  }, [token]);
+  }, [fetchPending, token]);
 
   // Listes dynamiques depuis l'API
-  const { items: listItems, getOptions: getListOptions } = useListItems(token);
+  const { getOptions: getListOptions } = useListItems(token);
   const sourceOptions = getListOptions("sources_courrier", langue);
   const etatOptions = getListOptions("etats_document", langue);
 
   const role = user?.role || "";
   const isAdmin = role === "Admin" || role === "admin";
-  const isDirecteur = role === "Directeur" || role === "directeur";
   const isGreffier = role === "Greffier" || role === "greffier";
-  const isConsultant = role === "Consultant" || role === "consultant";
   const canManageUsers = isAdmin;
   const canSeeAdminSection = isAdmin || isGreffier;
   const userService = user?.service || "";
@@ -220,20 +218,16 @@ export default function Home() {
   const canSeeSortantNormal = true; // tous les services voient les sortants
   const canSeeSortantDemande = true; // tous les services voient les sortants
   const isFormView = ["entrant-admin", "entrant-juridique", "sortant-normal", "sortant-demande"].includes(vueActive);
-
-  // Conditional UI rendering - hide elements based on permissions
-  const showCreateEntrantAdmin = canCreateEntrantAdmin;
-  const showCreateEntrantJuridique = canCreateEntrantJuridique;
-  const showCreateSortantNormal = canCreateSortantNormal;
-  const showCreateSortantDemande = canCreateSortantDemande;
-  const showOpenDossiers = canOpenDossiers;
-  const showTransfer = canTransfer;
-  const showViewArchives = canViewArchives;
-  const showViewTransactions = canViewTransactions;
-  const showSearchDossiers = canSearchDossiers;
+  // Only render the create-form when the user may create that type of courrier
+  // (backend enforces the same via [RequirePermission]).
+  const canUseForm =
+    (vueActive === "entrant-admin" && canCreateEntrantAdmin) ||
+    (vueActive === "entrant-juridique" && canCreateEntrantJuridique) ||
+    (vueActive === "sortant-normal" && canCreateSortantNormal) ||
+    (vueActive === "sortant-demande" && canCreateSortantDemande);
 
   const displayedCourriers = listeCourriers.map((doc) => ({ ...doc, ...(docOverrides[doc.id] || {}) }));
-  let visibleCourriers = displayedCourriers.filter((doc) => !hiddenDocKeys.includes(getDocKey(doc)) && !hiddenDocKeys.includes(String(doc.id)));
+  const visibleCourriers = displayedCourriers.filter((doc) => !hiddenDocKeys.includes(getDocKey(doc)) && !hiddenDocKeys.includes(String(doc.id)));
 
   const generalDocs = visibleCourriers.filter((doc) => doc.type !== "sortant-normal" && doc.type !== "sortant-demande");
   const sortantDocs = visibleCourriers.filter((doc) => doc.type === "sortant-normal" || doc.type === "sortant-demande");
@@ -379,25 +373,12 @@ export default function Home() {
     return { statuses, serviceBreakdown: null, SERVICE_COLORS: null, SERVICE_LABELS: null };
   })();
 
-  const docsEnAttente = countByGroup("EnAttente");
-  const docsAnnules = countByGroup("Annule");
   const docsArchives = visibleCourriers.filter((doc: CourrierSimule) => normalizeStatus(doc.statut) === "Archive").length + localRetraits.length;
-  const docsTraites = visibleCourriers.length - docsEnAttente - docsAnnules;
-
   const activityCards = [
     { title: cur.notifications, value: transactionStats.enAttente, view: "transactions" as VueActive, accent: "bg-amber-500" },
     { title: cur.demandesAttente, value: sortantDocs.length, view: "transactions" as VueActive, accent: "bg-sky-500" },
     { title: cur.transactionsTraitees, value: transactionStats.acceptes, view: "transactions" as VueActive, accent: "bg-emerald-500" },
     { title: cur.docsRetourner, value: transactionStats.refuses, view: "transactions" as VueActive, accent: "bg-indigo-500" }
-  ];
-
-  const workflowSteps = [
-    { label: cur.maktabDabt, service: "BureauOrdre" },
-    { label: cur.ouvertureDossier, service: "OuvertureDossier" },
-    { label: cur.kitabaKhasa, service: "KitabaKhasa" },
-    { label: cur.jalsatSection, service: "JalsatWaIjra2at" },
-    { label: cur.taslimSection, service: "TaslimNusakh" },
-    { label: cur.archiveDef, service: "Archive" }
   ];
 
   const selectedWorkflowDoc = visibleCourriers.find((doc: CourrierSimule) => doc.id === workflowDocId) ||
@@ -497,26 +478,30 @@ export default function Home() {
       await fetchCorbeille();
       await refetch();
       alert(cur.documentRestauré);
-    } catch (e: any) {
-      alert(`${cur.erreurRestauration}: ${e?.message || ""}`);
+    } catch (e) {
+      alert(`${cur.erreurRestauration}: ${getErrorMessage(e)}`);
     }
   };
 
   const searchLocalDirectory = async () => {
     try {
-      if (typeof (window as any).showDirectoryPicker !== "function") {
+      const w = window as typeof window & { showDirectoryPicker?: (opts?: { mode: string }) => Promise<FileSystemDirectoryHandle> };
+      if (typeof w.showDirectoryPicker !== "function") {
         alert(cur.navigateurNonSupport);
         return;
       }
-      const dirHandle = await (window as any).showDirectoryPicker({ mode: "read" });
+      const dirHandle = await w.showDirectoryPicker({ mode: "read" });
       const files: { name: string; content: string; path: string }[] = [];
 
-      const readDir = async (dir: any, path: string) => {
-        for await (const entry of dir.values()) {
+      const readDir = async (dir: FileSystemDirectoryHandle, path: string) => {
+        // The TS DOM lib doesn't declare the async-iteration helpers on
+        // FileSystemDirectoryHandle yet — browsers do implement values().
+        const values = (dir as FileSystemDirectoryHandle & { values(): AsyncIterableIterator<FileSystemHandle> }).values();
+        for await (const entry of values) {
           const entryPath = path ? `${path}/${entry.name}` : entry.name;
           if (entry.kind === "file" && (entry.name.endsWith(".pdf") || entry.name.endsWith(".doc") || entry.name.endsWith(".docx") || entry.name.endsWith(".txt") || entry.name.endsWith(".csv") || entry.name.endsWith(".xlsx") || entry.name.endsWith(".xls"))) {
             try {
-              const file = await entry.getFile();
+              const file = await (entry as FileSystemFileHandle).getFile();
               if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
                 const arrayBuffer = await file.arrayBuffer();
                 const XLSX = await import("xlsx");
@@ -542,7 +527,7 @@ export default function Home() {
                 for (let i = 1; i <= pdf.numPages; i++) {
                   const page = await pdf.getPage(i);
                   const content = await page.getTextContent();
-                  fullText += content.items.map((item: any) => item.str).join(" ") + "\n";
+                  fullText += content.items.map((item) => ("str" in item ? item.str : "")).join(" ") + "\n";
                 }
                 files.push({ name: file.name, content: fullText, path: entryPath });
               } else {
@@ -551,7 +536,7 @@ export default function Home() {
               }
             } catch (fileErr) { console.error("File read error:", entry.name, fileErr); }
           } else if (entry.kind === "directory") {
-            await readDir(entry, entryPath);
+            await readDir(entry as FileSystemDirectoryHandle, entryPath);
           }
         }
       };
@@ -560,8 +545,9 @@ export default function Home() {
       setLocalFiles(files);
       setSearchLocalFiles(true);
       alert(cur.fichiersTrouves(files.length));
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
+    } catch (err) {
+      const isAbort = err instanceof DOMException && err.name === "AbortError";
+      if (!isAbort) {
         alert(cur.erreurAccesFichiers);
       }
     }
@@ -650,7 +636,7 @@ export default function Home() {
         alert(cur.aucuneDonneeExport);
         return;
       }
-      const rows = (data as any[]).map((item: any) => {
+      const rows = (data as Record<string, unknown>[]).map((item) => {
         const row: Record<string, string> = {};
         Object.keys(item).forEach((key) => {
           if (key !== "id" && key !== "password" && key !== "token") {
@@ -659,7 +645,7 @@ export default function Home() {
         });
         return row;
       });
-      exportRows(rows, type, format, (cur as any)[type] || type);
+      exportRows(rows, type, format, String((cur as Record<string, unknown>)[type] || "") || type);
     } catch {
       alert(cur.erreurExport);
     }
@@ -673,13 +659,13 @@ export default function Home() {
         alert(cur.aucuneDonneeExport);
         return;
       }
-      const rows = (data as any[]).map((t: any) => ({
-        [cur.tblType]: t.documentSujet || "",
-        [cur.tblSource]: t.sourceServiceName || t.sourceServiceId || "",
-        [cur.tblDest]: t.destinationServiceName || t.destinationServiceId || "",
-        [cur.statut]: t.statut || "",
-        [cur.commentaire]: t.message || "",
-        [cur.tblDate]: t.dateTransaction || "",
+      const rows = (data as Record<string, unknown>[]).map((t) => ({
+        [cur.tblType]: String(t.documentSujet || ""),
+        [cur.tblSource]: String(t.sourceServiceName || t.sourceServiceId || ""),
+        [cur.tblDest]: String(t.destinationServiceName || t.destinationServiceId || ""),
+        [cur.statut]: String(t.statut || ""),
+        [cur.commentaire]: String(t.message || ""),
+        [cur.tblDate]: String(t.dateTransaction || ""),
       }));
       exportRows(rows, "notifications", format, cur.notifications);
     } catch {
@@ -687,8 +673,8 @@ export default function Home() {
     }
   };
 
-  const [importFileName, setImportFileName] = useState("");
-  const [importFile, setImportFile] = useState<File | null>(null);
+  const [, setImportFileName] = useState("");
+  const [, setImportFile] = useState<File | null>(null);
 
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [excelColumns, setExcelColumns] = useState<string[]>([]);
@@ -712,8 +698,8 @@ export default function Home() {
       setImportFileName(file.name);
       setImportFile(file);
       setShowMappingModal(true);
-    } catch (err: any) {
-      alert(err.message || cur.erreurImport);
+    } catch (err) {
+      alert(getErrorMessage(err) || cur.erreurImport);
     }
   };
 
@@ -735,8 +721,8 @@ export default function Home() {
       setImportFileName(file.name);
       setImportFile(file);
       setShowMappingModal(true);
-    } catch (err: any) {
-      alert(err.message || cur.erreurImport);
+    } catch (err) {
+      alert(getErrorMessage(err) || cur.erreurImport);
     }
     e.target.value = "";
   };
@@ -772,8 +758,8 @@ export default function Home() {
       alert(result.message || (langue === "fr"
         ? `Import terminé: ${result.success} succès, ${result.errors} erreurs`
         : `تم الاستيراد: ${result.success} نجاح, ${result.errors} أخطاء`));
-    } catch (err: any) {
-      alert(err?.message || "Erreur lors de l'import / خطأ أثناء الاستيراد");
+    } catch (err) {
+      alert(getErrorMessage(err) || "Erreur lors de l'import / خطأ أثناء الاستيراد");
     }
 
     setShowMappingModal(false);
@@ -790,7 +776,7 @@ export default function Home() {
 
     try {
       let endpoint = "";
-      let body: any = {};
+      let body: Record<string, unknown> = {};
 
       const numeroOrdreFinal = reference.trim();
 
@@ -875,7 +861,13 @@ export default function Home() {
         return;
       }
 
-      const data = await api.post<any>(endpoint, body, token);
+      const data = await api.post<{
+        courrier?: { id: number };
+        dossier?: { id: number };
+        sortant?: { id: number };
+        id?: number;
+        message?: string;
+      }>(endpoint, body, token);
       const docId = data.courrier?.id || data.dossier?.id || data.sortant?.id || data.id;
 
       // Upload file if one was selected
@@ -899,9 +891,9 @@ export default function Home() {
       await refetch();
       resetForm();
       setVueActive("dashboard");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erreur submit:", error);
-      let msg = error.message || "Erreur inconnue";
+      let msg = getErrorMessage(error) || "Erreur inconnue";
       // Traduire les erreurs backend en FR/AR
       if (msg.includes("numéro d'ordre existe déjà")) {
         msg = cur.errNumExiste;
@@ -1017,7 +1009,7 @@ export default function Home() {
             token
           );
           successCount++;
-        } catch (err: any) {
+        } catch (err) {
           if (err instanceof ApiError && err.status === 401) {
             alert(cur.sessionExpiree);
             logout();
@@ -1030,7 +1022,8 @@ export default function Home() {
           }
           failCount++;
           console.error(`Transfer ${doc.reference} to ${svc} error:`, err);
-          lastError = `(${svc}: ${err?.status || err?.message || "réseau"})`;
+          const errStatus = err instanceof ApiError ? err.status : 0;
+          lastError = `(${svc}: ${errStatus || getErrorMessage(err) || "réseau"})`;
         }
       }
     }
@@ -1057,19 +1050,6 @@ export default function Home() {
     setSelectedServices([]);
     setTransferMessage("");
     setTransferTargetUserId(null);
-  };
-
-  const maskDocument = (doc: CourrierSimule) => {
-    const key = getDocKey(doc);
-    setHiddenDocKeys((current) => current.includes(key) ? current : [...current, key]);
-  };
-
-  const maskSelection = () => {
-    setHiddenDocKeys((current) => {
-      const selectedKeys = visibleCourriers.filter((doc: CourrierSimule) => selectedIds.includes(doc.id)).map(getDocKey);
-      return Array.from(new Set([...current, ...selectedKeys]));
-    });
-    setSelectedIds([]);
   };
 
   const archiveSelection = async () => {
@@ -1129,9 +1109,9 @@ export default function Home() {
       setSelectedIds((current) => current.filter((id) => id !== doc.id));
       alert(cur.documentSupprime);
       await refetch();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erreur suppression:", err);
-      alert(`${cur.erreurPrefix} ${err?.message || cur.erreurBackend}`);
+      alert(`${cur.erreurPrefix} ${getErrorMessage(err) || cur.erreurBackend}`);
     }
   };
 
@@ -1167,7 +1147,7 @@ export default function Home() {
     }
   };
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     return <LoginPage langue={langue} />;
   }
 
@@ -1192,6 +1172,7 @@ export default function Home() {
         canTransfer={canTransfer}
         canViewArchives={canViewArchives}
         canViewTransactions={canViewTransactions}
+        canSearchDossiers={canSearchDossiers}
         pendingNotifications={pendingNotifications}
       />
 
@@ -1339,7 +1320,7 @@ export default function Home() {
             />
           )}
 
-          {vueActive === "recherche-dossiers" && (
+          {vueActive === "recherche-dossiers" && canSearchDossiers && (
             <RechercheDossiersView
               langue={langue}
               cur={cur}
@@ -1365,7 +1346,7 @@ export default function Home() {
             />
           )}
 
-          {isFormView && (
+          {isFormView && canUseForm && (
             <div className="bg-white rounded-xl border border-slate-300 shadow-sm w-full overflow-hidden">
               <div className="p-4 bg-slate-900 text-white font-bold text-xs">
                 <span>
@@ -1658,7 +1639,7 @@ export default function Home() {
           token={token}
           langue={langue}
           cur={cur}
-          onTransfer={(doc: any) => {
+          onTransfer={(doc: CourrierSimule) => {
             setWorkspaceDocId(null);
             openTransfer(doc);
           }}

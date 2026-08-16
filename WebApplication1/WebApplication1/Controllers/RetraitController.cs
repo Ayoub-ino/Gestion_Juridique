@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using WebApplication1.Data;
@@ -111,6 +112,7 @@ namespace WebApplication1.Controllers
 
     public class CreateRetraitDto
     {
+        [Range(1, int.MaxValue)]
         public int DocumentId { get; set; }
         public string Reference { get; set; } = string.Empty;
         public string EffectuePar { get; set; } = string.Empty;

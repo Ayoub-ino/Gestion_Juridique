@@ -1,10 +1,10 @@
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
 import { useRef } from "react";
 import { CourrierSimule } from "@/app/types";
-import { normalizeStatus } from "@/lib/utils";
 import { ExportFormat } from "@/lib/exportImport";
-import { getWorkflowProgress, getDelayDays, getServiceLabel } from "@/lib/constants";
+import { getWorkflowProgress, getDelayDays } from "@/lib/constants";
 
 interface GeneralTableProps {
   documents: CourrierSimule[];
@@ -13,7 +13,7 @@ interface GeneralTableProps {
   onDelete: (doc: CourrierSimule) => void;
   onOpen?: (doc: CourrierSimule) => void;
   canDelete?: boolean;
-  cur: any;
+  cur: TranslationKeys;
   langue?: "fr" | "ar";
   onExport?: (format: ExportFormat) => void;
   onImportExcel?: (file: File) => void;
@@ -27,10 +27,8 @@ export function GeneralTable({
   onView,
   onTransfer,
   onDelete,
-  onOpen,
   canDelete = true,
   cur,
-  langue = "fr",
   onExport,
   onImportExcel,
   selectedIds = [],

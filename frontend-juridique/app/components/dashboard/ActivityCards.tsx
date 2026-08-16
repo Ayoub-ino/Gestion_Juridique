@@ -2,6 +2,8 @@
 
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
+
 import { VueActive } from "@/app/types";
 
 interface ActivityCard {
@@ -14,7 +16,7 @@ interface ActivityCard {
 interface ActivityCardsProps {
   cards: ActivityCard[];
   onCardClick: (view: VueActive) => void;
-  cur: any;
+  cur: TranslationKeys;
 }
 
 export function ActivityCards({ cards, onCardClick, cur }: ActivityCardsProps) {

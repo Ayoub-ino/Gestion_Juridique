@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import type { TranslationKeys } from "@/lib/translations";
+import type { User } from "@/context/AuthContext";
+import { useState, useEffect, useCallback } from "react";
 import { Langue } from "@/app/types";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
 import { api } from "@/lib/api/client";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   token: string | null;
-  user: any;
+  user: User;
 }
 
 interface SubstituteEntry {
@@ -23,24 +25,24 @@ interface SubstituteEntry {
 
 export function ProfilPage({ langue, cur, token, user }: Props) {
   const [substitutes, setSubstitutes] = useState<SubstituteEntry[]>([]);
-  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<{ id: number; nom: string; service: string }[]>([]);
   const [selectedSubstitute, setSelectedSubstitute] = useState<number | 0>(0);
 
-  const fetchSubstitutes = async () => {
+  const fetchSubstitutes = useCallback(async () => {
     if (!user?.id) return;
     try {
       setSubstitutes(await api.get<SubstituteEntry[]>(`/api/Substitutes/history/${user.id}`, token));
     } catch (err) { console.error(err); }
-  };
+  }, [user, token]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const data = await api.get<{ id: number; nom: string; service: string }[]>("/api/Users", token);
       setAllUsers(data.filter((u) => u.id !== user?.id));
     } catch (err) { console.error(err); }
-  };
+  }, [user, token]);
 
-  useEffect(() => { fetchSubstitutes(); fetchUsers(); }, []);
+  useEffect(() => { fetchSubstitutes(); fetchUsers(); }, [fetchSubstitutes, fetchUsers]);
 
   const handleSaveSubstitute = async () => {
     if (!selectedSubstitute) {

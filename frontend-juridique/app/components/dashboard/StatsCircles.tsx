@@ -2,7 +2,7 @@
 
 import { getRoleLabel } from "@/lib/constants";
 
-interface StatsData {
+export interface StatsData {
   statuses: {
     key: string;
     label: string;

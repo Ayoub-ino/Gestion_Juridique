@@ -2,7 +2,9 @@
 
 "use client";
 
-import { useRef, useState } from "react";
+import type { TranslationKeys } from "@/lib/translations";
+
+import { useRef } from "react";
 import { SERVICE_GROUPS } from "@/lib/constants";
 import { Langue } from "@/app/types";
 
@@ -70,7 +72,7 @@ interface JuridiqueFormProps {
   isJalsatService: boolean;
   isTaslimService: boolean;
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   userRole?: string;
 }
 
@@ -143,7 +145,7 @@ export function JuridiqueForm({
   // Fonction pour sélectionner un dossier parent
   const handleSelectParentFolder = async () => {
     try {
-      const browserWindow = window as typeof window & { showDirectoryPicker?: () => Promise<any> };
+      const browserWindow = window as typeof window & { showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle> };
       if (!browserWindow.showDirectoryPicker) {
         alert(langue === "fr"
           ? "Votre navigateur ne supporte pas la sélection de dossier."
@@ -152,7 +154,7 @@ export function JuridiqueForm({
       }
       const handle = await browserWindow.showDirectoryPicker();
       setParentDossier(handle.name || (langue === "fr" ? "Dossier sélectionné" : "مجلد مختار"));
-    } catch (err) {
+    } catch {
       console.warn("Sélection annulée");
     }
   };

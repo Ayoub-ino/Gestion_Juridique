@@ -121,6 +121,7 @@ namespace WebApplication1.Services
             var logEntry = new PermissionValidationLog
             {
                 UserId = userId,
+                UtilisateurId = userId,
                 PermissionKey = permissionKey,
                 Endpoint = httpContext.Request.Path.Value ?? "",
                 Method = httpContext.Request.Method,
@@ -153,6 +154,7 @@ namespace WebApplication1.Models
     {
         public int Id { get; set; }
         public int UserId { get; set; }
+        public int UtilisateurId { get; set; }
         public string PermissionKey { get; set; }
         public string Endpoint { get; set; }
         public string Method { get; set; }

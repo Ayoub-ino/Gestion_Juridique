@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using WebApplication1.Data;
@@ -135,8 +136,11 @@ namespace WebApplication1.Controllers
 
     public class TransferDto
     {
+        [Range(1, int.MaxValue)]
         public int DocumentId { get; set; }
+        [Required]
         public string DocumentType { get; set; } = string.Empty;
+        [Required]
         public string ServiceDestination { get; set; } = string.Empty;
         public string? Message { get; set; }
         public bool DoitRevenir { get; set; }

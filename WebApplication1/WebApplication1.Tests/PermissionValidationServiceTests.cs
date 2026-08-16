@@ -54,9 +54,11 @@ namespace WebApplication1.Tests
             var result = await service.ValidatePermissionAsync(1, "archiver", HttpContext());
 
             Assert.True(result.IsAllowed);
-            // Audit log must have been written
-            var logCount = await ctx.PermissionValidationLogs.CountAsync();
-            Assert.Equal(1, logCount);
+            // Audit log must have been written with a valid FK to the user
+            // (regression: UtilisateurId used to stay 0 -> FK violation on SQL Server)
+            var log = await ctx.PermissionValidationLogs.SingleAsync();
+            Assert.Equal(1, log.UserId);
+            Assert.Equal(1, log.UtilisateurId);
         }
 
         [Fact]

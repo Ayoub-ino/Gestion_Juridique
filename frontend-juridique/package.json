@@ -11,9 +11,6 @@
     "typegen": "openapi-typescript http://localhost:5200/openapi/v1.json -o lib/types/api.generated.ts"
   },
   "dependencies": {
-    "file-saver": "^2.0.5",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8",
     "mammoth": "^1.12.0",
     "next": "16.2.9",
     "pdfjs-dist": "^6.1.200",
@@ -23,7 +20,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

@@ -47,9 +47,11 @@ namespace WebApplication1.Controllers
                 return NotFound(new { error = "Dossier non trouvé" });
 
             // 3. Vérification des droits : seul le service propriétaire ou l'admin peut le déplacer
+            //    Compare the mapped service enums — the raw user.Service string is an RBAC code
+            //    (e.g. "fathmilafat") that never matches ServiceTribunal.ToString() (e.g. "BureauOrdre").
             var currentService = dossier.ServiceActuel;
             var userService = ServiceMapper.MapToServiceEnum(user?.Service ?? "");
-            if (!isAdminLike && user?.Service != currentService.ToString())
+            if (!isAdminLike && userService != currentService)
                 return Unauthorized(new { error = "Vous n'avez pas le droit de déplacer ce dossier" });
 
             // 4. Logique de mouvement

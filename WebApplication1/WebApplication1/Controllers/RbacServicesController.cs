@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using WebApplication1.Data;
 using WebApplication1.Models;
 
@@ -123,7 +124,9 @@ namespace WebApplication1.Controllers
 
     public class CreateServiceDto
     {
+        [Required]
         public string Nom { get; set; } = string.Empty;
+        [Required]
         public string Code { get; set; } = string.Empty;
         public string? Description { get; set; }
         public int? ParentId { get; set; }

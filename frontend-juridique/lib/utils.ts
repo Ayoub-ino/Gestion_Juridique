@@ -20,3 +20,10 @@ export function normalizeStatus(status: string): string {
 export function getDocKey(doc: { id: number; type: string }): string {
   return `${doc.type}:${doc.id}`;
 }
+
+/** Extract a readable message from an unknown error (e.g. a catch clause). */
+export function getErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === "string") return err;
+  return "";
+}

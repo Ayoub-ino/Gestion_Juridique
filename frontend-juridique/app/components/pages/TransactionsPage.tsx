@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import type { TranslationKeys } from "@/lib/translations";
+import { useState, useEffect, useCallback } from "react";
 import { Langue } from "@/app/types";
 import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
@@ -9,7 +10,7 @@ import { api } from "@/lib/api/client";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   token: string | null;
   onAccepted?: () => void;
   isAdmin?: boolean;
@@ -38,7 +39,7 @@ export function TransactionsPage({ langue, cur, token, onAccepted, isAdmin }: Pr
   const [retours, setRetours] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(false);
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
@@ -48,9 +49,9 @@ export function TransactionsPage({ langue, cur, token, onAccepted, isAdmin }: Pr
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
-  useEffect(() => { fetchTransactions(); }, [token]);
+  useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
   const pendingTransactions = transactions.filter(t => t.statut === "EnAttente");
   const acceptedTransactions = transactions.filter(t => t.statut === "Accepte");

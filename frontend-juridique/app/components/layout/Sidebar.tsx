@@ -2,17 +2,20 @@
 
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
+
 import { Langue, VueActive } from "@/app/types";
-import { getServiceLabel, getRoleLabel } from "@/lib/constants";
+import { getRoleLabel } from "@/lib/constants";
 import { useTheme } from "@/context/ThemeContext";
+import type { User } from "@/context/AuthContext";
 interface SidebarProps {
   langue: Langue;
   setLangue: (l: Langue) => void;
   vueActive: VueActive;
   setVueActive: (v: VueActive) => void;
-  user: any;
+  user: User;
   logout: () => void;
-  cur: any;
+  cur: TranslationKeys;
   canSeeEntrantAdmin: boolean;
   canSeeEntrantJuridique: boolean;
   canSeeSortantNormal: boolean;
@@ -24,6 +27,7 @@ interface SidebarProps {
   canTransfer: boolean;
   canViewArchives: boolean;
   canViewTransactions: boolean;
+  canSearchDossiers: boolean;
   pendingNotifications?: number;
 }
 
@@ -42,10 +46,9 @@ export function Sidebar({
   isAdmin,
   canManageUsers,
   canSeeAdminSection,
-  canOpenDossiers,
-  canTransfer,
   canViewArchives,
   canViewTransactions,
+  canSearchDossiers,
   pendingNotifications = 0
 }: SidebarProps) {
   const { theme, toggle: toggleTheme } = useTheme();
@@ -107,9 +110,11 @@ export function Sidebar({
                 {cur.demandeMenu}
               </button>
             )}
-            <button onClick={() => setVueActive("recherche-dossiers")} className={navButtonClass(vueActive === "recherche-dossiers")}>
-              {cur.rechercheDossiers}
-            </button>
+            {canSearchDossiers && (
+              <button onClick={() => setVueActive("recherche-dossiers")} className={navButtonClass(vueActive === "recherche-dossiers")}>
+                {cur.rechercheDossiers}
+              </button>
+            )}
           </div>
         </div>
 

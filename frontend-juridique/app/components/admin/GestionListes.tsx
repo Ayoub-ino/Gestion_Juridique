@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import type { TranslationKeys } from "@/lib/translations";
+import { useState, useEffect, useCallback } from "react";
 import { Langue } from "@/app/types";
 import { ExportFormat } from "@/lib/exportImport";
 import { api } from "@/lib/api/client";
+import { getErrorMessage } from "@/lib/utils";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   token: string | null;
   onExport?: (format: ExportFormat) => void;
 }
@@ -42,13 +44,13 @@ export function GestionListes({ langue, cur, token, onExport }: Props) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ code: "", valueFr: "", valueAr: "", displayOrder: 1, isActive: true });
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     try {
       setItems(await api.get<ListItemData[]>(`/api/ListItems?listName=${activeCategory}`, token));
     } catch (err) { console.error("Erreur fetch list items:", err); }
-  };
+  }, [activeCategory, token]);
 
-  useEffect(() => { fetchItems(); }, [activeCategory]);
+  useEffect(() => { fetchItems(); }, [fetchItems]);
 
   const filtered = items.filter(i =>
     !searchTerm || i.valueFr.toLowerCase().includes(searchTerm.toLowerCase()) || i.valueAr.includes(searchTerm) || i.code.includes(searchTerm)
@@ -69,8 +71,8 @@ export function GestionListes({ langue, cur, token, onExport }: Props) {
       setEditingId(null);
       setForm({ code: "", valueFr: "", valueAr: "", displayOrder: 1, isActive: true });
       fetchItems();
-    } catch (err: any) {
-      alert(err?.message || (langue === "fr" ? "Erreur" : "خطأ"));
+    } catch (err) {
+      alert(getErrorMessage(err) || (langue === "fr" ? "Erreur" : "خطأ"));
     }
   };
 

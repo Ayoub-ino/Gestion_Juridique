@@ -1,5 +1,8 @@
 // lib/translations.ts
 
+/** Shape of one language's dictionary — used to type `cur` props in components. */
+export type TranslationKeys = typeof translations.fr;
+
 export const translations = {
   fr: {
     royaume: "Royaume du Maroc",

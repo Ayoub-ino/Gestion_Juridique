@@ -1,15 +1,16 @@
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
 import { CourrierSimule, Langue } from "@/app/types";
 import { exportRows } from "@/lib/exportImport";
 import { normalizeStatus } from "@/lib/utils";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   showCorbeille: boolean;
   setShowCorbeille: (b: boolean) => void;
-  corbeilleDocs: any[];
+  corbeilleDocs: { id: number; reference: string; objet: string; serviceActuel: string }[];
   onFetchCorbeille: () => void;
   onRestoreDocument: (id: number) => void;
   filteredGeneral: CourrierSimule[];
@@ -169,7 +170,7 @@ export function ArchivesView({
                 {corbeilleDocs.length === 0 ? (
                   <tr><td colSpan={4} className="p-6 text-center text-slate-400">{cur.aucunSupprime}</td></tr>
                 ) : (
-                  corbeilleDocs.map((doc: any) => (
+                  corbeilleDocs.map((doc) => (
                     <tr key={doc.id} className="border-b border-slate-100 hover:bg-red-50/30">
                       <td className="p-3 font-mono">{doc.reference}</td>
                       <td className="p-3 font-bold">{doc.objet}</td>

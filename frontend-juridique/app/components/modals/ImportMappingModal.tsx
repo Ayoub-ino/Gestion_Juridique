@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Langue } from "@/app/types";
 import { ExportRow } from "@/lib/exportImport";
 
@@ -91,6 +91,8 @@ export function ImportMappingModal({
   langue,
   previewData,
 }: ImportMappingModalProps) {
+  const colsKey = excelColumns.join(",");
+
   // Initialise mapping with auto-match on mount / when columns change
   const initialMapping = useMemo(() => {
     const m: Record<string, string> = {};
@@ -99,14 +101,17 @@ export function ImportMappingModal({
     }
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [excelColumns.join(",")]);
+  }, [colsKey]);
 
   const [mapping, setMapping] = useState<Record<string, string>>(initialMapping);
 
-  // Reset mapping when columns change
-  useEffect(() => {
+  // Reset mapping when columns change — adjust state during render (guarded by
+  // a change check), the React-recommended alternative to an effect-based reset.
+  const [prevCols, setPrevCols] = useState(colsKey);
+  if (prevCols !== colsKey) {
+    setPrevCols(colsKey);
     setMapping(initialMapping);
-  }, [initialMapping]);
+  }
 
   const setField = (excelCol: string, dbField: string) => {
     setMapping((prev) => ({ ...prev, [excelCol]: dbField }));

@@ -2,6 +2,8 @@
 
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
+
 import { useRef } from "react";
 import { SERVICE_GROUPS } from "@/lib/constants";
 
@@ -33,7 +35,7 @@ interface AdminFormProps {
   servicesDiffusion: string[];
   setServicesDiffusion: (v: string[]) => void;
   langue: "fr" | "ar";
-  cur: any;
+  cur: TranslationKeys;
   sourceOptions?: { value: string; label: string }[];
   etatOptions?: { value: string; label: string }[];
   serviceOptions?: { value: string; label: string }[];
@@ -77,7 +79,6 @@ export function AdminForm({
   cur,
   sourceOptions,
   etatOptions,
-  serviceOptions,
   reference,
   setReference,
   objet,

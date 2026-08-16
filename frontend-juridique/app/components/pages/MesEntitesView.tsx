@@ -1,11 +1,12 @@
 "use client";
 
+import type { TranslationKeys } from "@/lib/translations";
 import { CourrierSimule, Langue, VueActive } from "@/app/types";
 import { ExportFormat } from "@/lib/exportImport";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   filteredGeneral: CourrierSimule[];
   selectedIds: number[];
   selectedDocIds: number[];

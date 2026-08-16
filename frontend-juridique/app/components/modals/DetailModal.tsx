@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import type { TranslationKeys } from "@/lib/translations";
+import { useEffect, useState, useCallback } from "react";
 import { CourrierSimule } from "@/app/types";
 import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, getRoleLabel, WORKFLOW_STEPS, getWorkflowProgress, getDelayDays } from "@/lib/constants";
@@ -12,8 +13,8 @@ interface DetailModalProps {
   onClose: () => void;
   onTransfer?: (doc: CourrierSimule) => void;
   onSaved?: () => void;
-  historique: any[];
-  cur: any;
+  historique: unknown[];
+  cur: TranslationKeys;
   langue?: "fr" | "ar";
   token?: string | null;
 }
@@ -46,8 +47,8 @@ interface DocDetails {
   DateEnvoi?: string;
   TypeCircuit?: string;
   MotifException?: string;
-  ServiceActuel?: any;
-  StatutActuel?: any;
+  ServiceActuel?: string | number | null;
+  StatutActuel?: string | number | null;
   FilePath?: string;
   filePath?: string;
   NumeroBureauOrdre?: string;
@@ -60,10 +61,10 @@ interface DocDetails {
   EtatGlobal?: string;
   Circuit?: string;
   AutoriteRetrait?: string;
-  transactions?: any[];
+  transactions?: unknown[];
 }
 
-export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur, langue = "fr", token }: DetailModalProps) {
+export function DetailModal({ doc, onClose, onTransfer, onSaved, cur, langue = "fr", token }: DetailModalProps) {
   const { hasPermission } = useAuth();
   const canAddNotes = hasPermission("ajouter_notes");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -87,7 +88,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
     return getRoleLabel(value, langue);
   };
 
-  const fetchDocDetails = async () => {
+  const fetchDocDetails = useCallback(async () => {
     if (!doc || !token) return;
     setLoadingDoc(true);
     try {
@@ -113,9 +114,9 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
     } finally {
       setLoadingDoc(false);
     }
-  };
+  }, [doc, token]);
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     if (!doc || !token) return;
     setLoadingHistory(true);
     try {
@@ -125,7 +126,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [doc, token]);
 
   useEffect(() => {
     if (doc) {
@@ -136,7 +137,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
       setNote("");
       setSuccessMsg("");
     }
-  }, [doc?.id, token]);
+  }, [doc, fetchDocDetails, fetchHistory]);
 
   useEffect(() => {
     if (!showPreview || !docDetails?.filePath) {
@@ -200,7 +201,6 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
   const isLate = delayDays > 7;
 
   const inputClass = "w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm dark:bg-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition";
-  const readOnlyClass = "w-full p-2 text-sm dark:text-slate-200 bg-transparent border border-transparent rounded-lg";
 
   const renderField = (label: string, fieldKey: string, value: string | undefined) => {
     if (editMode && fieldKey !== "NumeroOrdre") {
@@ -286,7 +286,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                 {renderField(cur.tblRef, "NumeroOrdre", docDetails?.NumeroOrdre || doc.reference)}
                 <div>
                   <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{cur.tblType}</p>
-                  <p className="text-sm dark:text-slate-200">{doc.type === "entrant-admin" ? cur.admin : doc.type === "entrant-juridique" ? cur.juridique : cur.sortant}</p>
+                  <p className="text-sm dark:text-slate-200">{doc.type === "entrant-admin" ? cur.admin : doc.type === "entrant-juridique" ? cur.juridique : cur.sortants}</p>
                 </div>
                 {renderField(cur.tblDate, "DateCreation", docDetails?.DateCreation || doc.date)}
                 {renderField(cur.tblSource, "Expediteur", docDetails?.Expediteur || doc.source)}

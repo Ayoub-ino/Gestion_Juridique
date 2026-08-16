@@ -1,31 +1,32 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { Langue } from "@/app/types";
+import type { TranslationKeys } from "@/lib/translations";
+import { useState, useMemo } from "react";
+import { Langue, CourrierSimule } from "@/app/types";
 import { exportRows, ExportFormat } from "@/lib/exportImport";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   token: string | null;
   userService: string;
   userId: number | undefined;
-  visibleCourriers: any[];
+  visibleCourriers: CourrierSimule[];
   hasPermission: (key: string) => boolean;
   selectedIds: number[];
   setSelectedIds: (ids: number[]) => void;
   toggleSelected: (id: number) => void;
-  selectedDocument: any;
-  setSelectedDocument: (doc: any) => void;
+  selectedDocument: CourrierSimule | null;
+  setSelectedDocument: (doc: CourrierSimule | null) => void;
   setShowModal: (show: boolean) => void;
-  openTransfer: (doc: any) => void;
-  handleDelete: (doc: any) => void;
+  openTransfer: (doc: CourrierSimule) => void;
+  handleDelete: (doc: CourrierSimule) => void;
   getServiceLabel: (service: string, langue: Langue) => string;
 }
 
 export function MesDossiersEnCoursView({ 
-  langue, cur, token, userService, userId, visibleCourriers, hasPermission,
-  selectedIds, setSelectedIds, toggleSelected, selectedDocument, setSelectedDocument, setShowModal,
+  langue, cur, userService, userId, visibleCourriers, hasPermission,
+  selectedIds, setSelectedIds, toggleSelected, setSelectedDocument, setShowModal,
   openTransfer, handleDelete, getServiceLabel
 }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,7 +58,7 @@ export function MesDossiersEnCoursView({
   const searchedDossiers = useMemo(() => {
     if (!searchTerm) return mesDossiers;
     const s = searchTerm.toLowerCase();
-    return mesDossiers.filter((doc: any) =>
+    return mesDossiers.filter((doc) =>
       doc.objet?.toLowerCase().includes(s) ||
       doc.reference?.toLowerCase().includes(s) ||
       doc.source?.toLowerCase().includes(s) ||
@@ -99,7 +100,7 @@ export function MesDossiersEnCoursView({
   };
 
   const exportDossiers = (format: ExportFormat) => {
-    const rows = filteredDossiers.map((doc: any) => ({
+    const rows = filteredDossiers.map((doc) => ({
       reference: doc.reference,
       objet: doc.objet,
       type: doc.type,
@@ -132,7 +133,7 @@ export function MesDossiersEnCoursView({
               </span>
               <select
                 value={volumeFilter}
-                onChange={(e) => setVolumeFilter(e.target.value as any)}
+                onChange={(e) => setVolumeFilter(e.target.value as "all" | "dizaines" | "cinquantaines")}
                 className="p-2 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
               >
                 <option value="all">{langue === "fr" ? "Tous" : "الكل"}</option>

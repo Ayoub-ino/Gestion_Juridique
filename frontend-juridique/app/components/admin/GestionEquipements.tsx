@@ -1,20 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import type { TranslationKeys } from "@/lib/translations";
+import { useState, useEffect, useCallback } from "react";
 import { Langue, EquipmentItem } from "@/app/types";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
 import { ExportFormat } from "@/lib/exportImport";
 import { api } from "@/lib/api/client";
+import { getErrorMessage } from "@/lib/utils";
 
 interface Props {
   langue: Langue;
-  cur: any;
+  cur: TranslationKeys;
   token: string | null;
   onExport?: (format: ExportFormat) => void;
-}
-
-function getAllServices() {
-  return SERVICE_GROUPS.flatMap(g => g.children.map(c => c.value));
 }
 
 export function GestionEquipements({ langue, cur, token, onExport }: Props) {
@@ -25,15 +23,14 @@ export function GestionEquipements({ langue, cur, token, onExport }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ serial: "", code: "", type: "", etat: "", service: "", numeroInventaire: "", bureau: "" });
-  const allServices = getAllServices();
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     try {
       setItems(await api.get<EquipmentItem[]>("/api/Equipment", token));
     } catch (err) { console.error("Erreur fetch equipment:", err); }
-  };
+  }, [token]);
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { fetchItems(); }, [fetchItems]);
 
   const filtered = items.filter(i => {
     const matchSearch = !searchTerm || i.serial.toLowerCase().includes(searchTerm.toLowerCase()) || i.code.toLowerCase().includes(searchTerm.toLowerCase()) || i.service.toLowerCase().includes(searchTerm.toLowerCase());
@@ -59,8 +56,8 @@ export function GestionEquipements({ langue, cur, token, onExport }: Props) {
       setEditingId(null);
       setForm({ serial: "", code: "", type: "", etat: "", service: "", numeroInventaire: "", bureau: "" });
       fetchItems();
-    } catch (err: any) {
-      alert(cur.erreurPrefix + (err?.message || ""));
+    } catch (err) {
+      alert(cur.erreurPrefix + getErrorMessage(err));
     }
   };
 
