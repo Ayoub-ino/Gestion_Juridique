@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
 using WebApplication1.Helpers;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -23,6 +24,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("transferer_juridique")]
         public async Task<IActionResult> MoveDossier(int dossierId, [FromBody] MoveDto dto)
         {
             // 1. Récupérer l'utilisateur connecté (via JWT)
@@ -175,7 +177,7 @@ namespace WebApplication1.Controllers
 
         public class MoveDto
         {
-            public string Action { get; set; } // to_ijra2, to_mofawid, return_to_jalsat, etc.
+            public string Action { get; set; } = string.Empty; // to_ijra2, to_mofawid, return_to_jalsat, etc.
             public string? AutoriteRetrait { get; set; } // Pour le retrait d'archive
         }
     }

@@ -36,6 +36,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<ExcelImportResponse>> Import([FromBody] ExcelImportRequest request)
         {
             if (request.Rows == null || request.Rows.Count == 0)

@@ -2,6 +2,6 @@
 {
     public class UpdateStatutDto
     {
-        public string Statut { get; set; }
+        public string Statut { get; set; } = string.Empty;
     }
 }

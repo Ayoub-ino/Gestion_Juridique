@@ -30,35 +30,38 @@ function getNowFR(): string {
   return new Date().toLocaleDateString("fr-FR") + " " + new Date().toLocaleTimeString("fr-FR");
 }
 
-export function exportRows(rows: ExportRow[], filename: string, format: ExportFormat, title?: string) {
+export function exportRows(rows: ExportRow[], filename: string, format: ExportFormat, label?: string): boolean {
   if (rows.length === 0) {
-    alert("Aucune donnée à exporter / لا توجد بيانات للتصدير");
-    return;
+    return false;
   }
   const headers = Object.keys(rows[0]);
 
   switch (format) {
     case "export excel":
-      exportExcel(rows, headers, filename, title);
+      exportExcel(rows, headers, filename, label);
       break;
     case "export word":
-      exportWord(rows, headers, filename, title);
+      exportWord(rows, headers, filename, label);
       break;
   }
+  return true;
 }
 
-function buildHeaderLines(): string[] {
-  return [
+function buildHeaderLines(label?: string): string[] {
+  const lines = [
     "ROYAUME DU MAROC",
     "Cour d'Appel Administrative de Fes",
-    "Direction des Affaires Juridiques",
   ];
+  if (label) {
+    lines.push(label);
+  }
+  return lines;
 }
 
-function exportExcel(rows: ExportRow[], headers: string[], filename: string, title?: string) {
+function exportExcel(rows: ExportRow[], headers: string[], filename: string, label?: string) {
   try {
     const dateStr = getNowFR();
-    const hdr = buildHeaderLines();
+    const hdr = buildHeaderLines(label);
 
     const wsData: any[][] = [
       ...hdr.map((h) => [h]),
@@ -83,14 +86,14 @@ function exportExcel(rows: ExportRow[], headers: string[], filename: string, tit
     downloadBuffer(wbout, name, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   } catch (err: any) {
     console.error("Excel export error:", err);
-    alert("Erreur Excel: " + (err.message || ""));
+    throw err;
   }
 }
 
-function exportWord(rows: ExportRow[], headers: string[], filename: string, title?: string) {
+function exportWord(rows: ExportRow[], headers: string[], filename: string, label?: string) {
   try {
     const dateStr = getNowFR();
-    const hdr = buildHeaderLines();
+    const hdr = buildHeaderLines(label);
 
     let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
       xmlns:w="urn:schemas-microsoft-com:office:word"
@@ -111,7 +114,7 @@ function exportWord(rows: ExportRow[], headers: string[], filename: string, titl
     <div class="header">
       <p class="h1">${hdr[0]}</p>
       <p class="h1">${hdr[1]}</p>
-      <p class="h2">${hdr[2]}</p>
+      ${hdr[2] ? `<p class="h2">${hdr[2]}</p>` : ""}
     </div>
 
     <p class="meta">Date : ${dateStr} &nbsp;|&nbsp; ${rows.length} enregistrement(s)</p>
@@ -130,7 +133,7 @@ function exportWord(rows: ExportRow[], headers: string[], filename: string, titl
     downloadBlob(blob, filename.endsWith(".doc") ? filename : filename + ".doc");
   } catch (err: any) {
     console.error("Word export error:", err);
-    alert("Erreur Word: " + (err.message || ""));
+    throw err;
   }
 }
 
@@ -229,7 +232,7 @@ export function importFromFile(file: File): Promise<ImportResult> {
         const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
         resolve({ columns, data: rows });
       };
-      reader.onerror = () => reject(new Error("Erreur de lecture / خطأ في القراءة"));
+      reader.onerror = () => reject(new Error());
       reader.readAsText(file, "UTF-8");
     } else if (ext === "xlsx" || ext === "xls") {
       const reader = new FileReader();
@@ -290,10 +293,10 @@ export function importFromFile(file: File): Promise<ImportResult> {
 
           resolve({ columns: headers, data: jsonData });
         } catch (err) {
-          reject(new Error("Erreur de lecture Excel / خطأ في قراءة Excel"));
+          reject(new Error());
         }
       };
-      reader.onerror = () => reject(new Error("Erreur de lecture / خطأ في القراءة"));
+      reader.onerror = () => reject(new Error());
       reader.readAsArrayBuffer(file);
     } else if (ext === "doc" || ext === "docx") {
       const reader = new FileReader();
@@ -315,13 +318,13 @@ export function importFromFile(file: File): Promise<ImportResult> {
             resolve({ columns: ["Ligne", "Contenu"], data: rows });
           }
         } catch (err) {
-          reject(new Error("Erreur de lecture Word / خطأ في قراءة Word"));
+          reject(new Error());
         }
       };
-      reader.onerror = () => reject(new Error("Erreur de lecture / خطأ في القراءة"));
+      reader.onerror = () => reject(new Error());
       reader.readAsArrayBuffer(file);
     } else {
-      reject(new Error("Format non supporté / صيغة غير مدعومة"));
+      reject(new Error("UNSUPPORTED_FORMAT"));
     }
   });
 }

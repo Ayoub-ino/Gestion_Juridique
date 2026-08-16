@@ -28,11 +28,11 @@ import { GestionServicesHistoriques } from "@/app/components/admin/GestionServic
 
 import { translations } from "@/lib/translations";
 import { normalizeStatus, getDocKey } from "@/lib/utils";
-import { SERVICE_GROUPS, getServiceLabel, getStatusLabel, USER_SERVICE_TO_ENUM, WORKFLOW_STEPS } from "@/lib/constants";
+import { getServiceLabel, getStatusLabel, USER_SERVICE_TO_ENUM, WORKFLOW_STEPS } from "@/lib/constants";
 import { useDocuments } from "@/app/hooks/useDocuments";
-import { exportRows, importFromFile, downloadExcelTemplate, ExportFormat, ExportRow, ImportResult } from "@/lib/exportImport";
+import { exportRows, importFromFile, downloadExcelTemplate, ExportFormat, ExportRow } from "@/lib/exportImport";
 import { useListItems } from "@/app/hooks/useListItems";
-import { Langue, VueActive, CourrierSimule, LocalTransaction, LocalRetrait } from "@/app/types";
+import { Langue, VueActive, CourrierSimule, LocalRetrait } from "@/app/types";
 
 export default function Home() {
   const { user, token, isAuthenticated, logout, hasPermission } = useAuth();
@@ -115,7 +115,6 @@ export default function Home() {
   const [pendingNotifications, setPendingNotifications] = useState(0);
   const [selectedDocIds, setSelectedDocIds] = useState<number[]>([]);
   const [transactionStats, setTransactionStats] = useState({ total: 0, acceptes: 0, refuses: 0, enAttente: 0, pourcentage: 0 });
-  const [localTransactions, setLocalTransactions] = useState<LocalTransaction[]>([]);
   const [localRetraits, setLocalRetraits] = useState<LocalRetrait[]>([]);
   const [showRetournerModal, setShowRetournerModal] = useState(false);
   const [retournerDocs, setRetournerDocs] = useState<any[]>([]);
@@ -124,7 +123,6 @@ export default function Home() {
   const [corbeilleDocs, setCorbeilleDocs] = useState<any[]>([]);
   const [localFiles, setLocalFiles] = useState<{ name: string; content: string; path: string }[]>([]);
   const [searchLocalFiles, setSearchLocalFiles] = useState(false);
-  const [localSearchResults, setLocalSearchResults] = useState<{ name: string; path: string; snippet: string }[]>([]);
   const [retraitDoc, setRetraitDoc] = useState<{ id: number; reference: string; objet: string } | null>(null);
   const [batchTransferDocs, setBatchTransferDocs] = useState<CourrierSimule[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -151,7 +149,7 @@ export default function Home() {
         const statsData = await statsRes.json();
         setTransactionStats(statsData);
       }
-    } catch (err) { /* silent */ }
+    } catch (err) { console.error("Fetch pending error:", err); alert(cur.erreurChargement); }
   };
 
   useEffect(() => {
@@ -175,7 +173,7 @@ export default function Home() {
   const canSeeAdminSection = isAdmin || isGreffier;
   const userService = user?.service || "";
 
-  // RBAC permission-based gates
+  // Enhanced permission-based gates with admin override support
   const canCreateEntrantAdmin = hasPermission("creer_courrier_admin");
   const canCreateEntrantJuridique = hasPermission("creer_courrier_juridique");
   const canCreateSortantNormal = hasPermission("creer_modifier");
@@ -185,6 +183,9 @@ export default function Home() {
   const canViewArchives = hasPermission("archives_view");
   const canViewTransactions = hasPermission("transactions");
   const canSearchDossiers = hasPermission("recherche_avancee");
+  const canDelete = hasPermission("supprimer");
+  const canArchive = hasPermission("archiver");
+  const canRetrait = hasPermission("retrait_archive");
 
   const isJalsatService = userService === "JalsatWaIjra2at" || isAdmin;
   const isTaslimService = userService === "TaslimNusakh" || isAdmin;
@@ -193,6 +194,17 @@ export default function Home() {
   const canSeeSortantNormal = true; // tous les services voient les sortants
   const canSeeSortantDemande = true; // tous les services voient les sortants
   const isFormView = ["entrant-admin", "entrant-juridique", "sortant-normal", "sortant-demande"].includes(vueActive);
+
+  // Conditional UI rendering - hide elements based on permissions
+  const showCreateEntrantAdmin = canCreateEntrantAdmin;
+  const showCreateEntrantJuridique = canCreateEntrantJuridique;
+  const showCreateSortantNormal = canCreateSortantNormal;
+  const showCreateSortantDemande = canCreateSortantDemande;
+  const showOpenDossiers = canOpenDossiers;
+  const showTransfer = canTransfer;
+  const showViewArchives = canViewArchives;
+  const showViewTransactions = canViewTransactions;
+  const showSearchDossiers = canSearchDossiers;
 
   const displayedCourriers = listeCourriers.map((doc) => ({ ...doc, ...(docOverrides[doc.id] || {}) }));
   let visibleCourriers = displayedCourriers.filter((doc) => !hiddenDocKeys.includes(getDocKey(doc)) && !hiddenDocKeys.includes(String(doc.id)));
@@ -455,7 +467,7 @@ export default function Home() {
         const data = await res.json();
         setCorbeilleDocs(data);
       }
-    } catch {}
+    } catch (err) { console.error("Fetch corbeille error:", err); alert(cur.erreurChargement); }
   };
 
   const restoreDocument = async (id: number) => {
@@ -467,21 +479,21 @@ export default function Home() {
       });
       if (!res.ok) {
         const err = await res.text();
-        alert(langue === "fr" ? `Erreur restauration: ${err}` : `خطأ في الاستعادة: ${err}`);
+        alert(`${cur.erreurRestauration}: ${err}`);
         return;
       }
       await fetchCorbeille();
       await refetch();
-      alert(langue === "fr" ? "Document restauré." : "تمت استعادة الوثيقة.");
+      alert(cur.documentRestauré);
     } catch (e: any) {
-      alert(langue === "fr" ? `Erreur de restauration: ${e.message}` : `خطأ في الاستعادة: ${e.message}`);
+      alert(`${cur.erreurRestauration}: ${e.message}`);
     }
   };
 
   const searchLocalDirectory = async () => {
     try {
       if (typeof (window as any).showDirectoryPicker !== "function") {
-        alert(langue === "fr" ? "Votre navigateur ne supporte pas la recherche de fichiers locaux. Utilisez Chrome/Edge." : "متصفحك لا يدعم البحث في الملفات المحلية. استخدم Chrome/Edge.");
+        alert(cur.navigateurNonSupport);
         return;
       }
       const dirHandle = await (window as any).showDirectoryPicker({ mode: "read" });
@@ -525,7 +537,7 @@ export default function Home() {
                 const text = await file.text();
                 files.push({ name: file.name, content: text, path: entryPath });
               }
-            } catch {}
+            } catch (fileErr) { console.error("File read error:", entry.name, fileErr); }
           } else if (entry.kind === "directory") {
             await readDir(entry, entryPath);
           }
@@ -535,12 +547,10 @@ export default function Home() {
       await readDir(dirHandle, "");
       setLocalFiles(files);
       setSearchLocalFiles(true);
-      alert(langue === "fr"
-        ? `${files.length} fichier(s) trouvé(s). Recherchez maintenant.`
-        : `${files.length} ملف(ات). يمكنك البحث الآن.`);
+      alert(cur.fichiersTrouves(files.length));
     } catch (err: any) {
       if (err.name !== "AbortError") {
-        alert(langue === "fr" ? "Erreur d'accès aux fichiers" : "خطأ في الوصول للملفات");
+        alert(cur.erreurAccesFichiers);
       }
     }
   };
@@ -627,7 +637,7 @@ export default function Home() {
       if (!res.ok) return;
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) {
-        alert(langue === "fr" ? "Aucune donnée à exporter" : "لا توجد بيانات للتصدير");
+        alert(cur.aucuneDonneeExport);
         return;
       }
       const rows = data.map((item: any) => {
@@ -641,7 +651,7 @@ export default function Home() {
       });
       exportRows(rows, type, format, (cur as any)[type] || type);
     } catch {
-      alert(langue === "fr" ? "Erreur lors de l'export" : "خطأ في التصدير");
+      alert(cur.erreurExport);
     }
   };
 
@@ -654,24 +664,25 @@ export default function Home() {
       if (!res.ok) return;
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) {
-        alert(langue === "fr" ? "Aucune donnée à exporter" : "لا توجد بيانات للتصدير");
+        alert(cur.aucuneDonneeExport);
         return;
       }
       const rows = data.map((t: any) => ({
-        [langue === "fr" ? "Document" : "الوثيقة"]: t.documentSujet || "",
-        [langue === "fr" ? "De" : "من"]: t.sourceServiceName || t.sourceServiceId || "",
-        [langue === "fr" ? "Vers" : "إلى"]: t.destinationServiceName || t.destinationServiceId || "",
-        [langue === "fr" ? "Statut" : "الحالة"]: t.statut || "",
-        [langue === "fr" ? "Message" : "الرسالة"]: t.message || "",
-        [langue === "fr" ? "Date" : "التاريخ"]: t.dateTransaction || "",
+        [cur.tblType]: t.documentSujet || "",
+        [cur.tblSource]: t.sourceServiceName || t.sourceServiceId || "",
+        [cur.tblDest]: t.destinationServiceName || t.destinationServiceId || "",
+        [cur.statut]: t.statut || "",
+        [cur.commentaire]: t.message || "",
+        [cur.tblDate]: t.dateTransaction || "",
       }));
       exportRows(rows, "notifications", format, cur.notifications);
-    } catch {}
+    } catch {
+      alert(cur.erreurExport);
+    }
   };
 
   const [importFileName, setImportFileName] = useState("");
   const [importFile, setImportFile] = useState<File | null>(null);
-  const quickImportRef = useRef<HTMLInputElement>(null);
 
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [excelColumns, setExcelColumns] = useState<string[]>([]);
@@ -685,7 +696,7 @@ export default function Home() {
       const result = await importFromFile(file);
       const data = result.data;
       if (data.length === 0) {
-        alert(langue === "fr" ? "Aucune donnée trouvée dans le fichier" : "لم يتم العثور على بيانات في الملف");
+        alert(cur.aucuneDonneeFichier);
         return;
       }
       // Always show mapping modal for Excel files
@@ -696,7 +707,7 @@ export default function Home() {
       setImportFile(file);
       setShowMappingModal(true);
     } catch (err: any) {
-      alert(err.message || "Erreur d'importation");
+      alert(err.message || cur.erreurImport);
     }
   };
 
@@ -707,7 +718,7 @@ export default function Home() {
       const result = await importFromFile(file);
       const data = result.data;
       if (data.length === 0) {
-        alert(langue === "fr" ? "Aucune donnée trouvée dans le fichier" : "لم يتم العثور على بيانات في الملف");
+        alert(cur.aucuneDonneeFichier);
         e.target.value = "";
         return;
       }
@@ -719,7 +730,7 @@ export default function Home() {
       setImportFile(file);
       setShowMappingModal(true);
     } catch (err: any) {
-      alert(err.message || "Erreur d'importation");
+      alert(err.message || cur.erreurImport);
     }
     e.target.value = "";
   };
@@ -778,66 +789,6 @@ export default function Home() {
     await refetch();
   };
 
-  const handleQuickImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !token) return;
-    const ext = file.name.split(".").pop()?.toLowerCase() || "";
-    const baseName = file.name.replace(/\.[^.]+$/, "");
-    try {
-      let content = "";
-      if (ext === "csv" || ext === "txt") {
-        const text = await file.text();
-        const lines = text.split("\n").filter(l => l.trim());
-        content = lines.length > 1 ? `${lines.length} lignes` : lines[0] || "";
-      } else if (ext === "xlsx" || ext === "xls") {
-        const XLSX = await import("xlsx");
-        const data = await file.arrayBuffer();
-        const wb = XLSX.read(data, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws);
-        content = `${rows.length} lignes importées`;
-      } else if (ext === "doc" || ext === "docx") {
-        const mammoth = (await import("mammoth")).default;
-        const data = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer: data });
-        content = result.value.substring(0, 200) || "Document Word";
-      } else if (ext === "pdf") {
-        content = "Document PDF";
-      }
-      const res = await fetch(`${BASE_URL}/api/CourrierAdmin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          numeroOrdre: `IMP-${Date.now()}`,
-          expediteur: "Import rapide",
-          objet: baseName,
-          transmissible: true,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const docId = data.courrier?.id;
-        // Upload the actual file
-        if (docId) {
-          const fd = new FormData();
-          fd.append("file", file);
-          await fetch(`${BASE_URL}/api/FileUpload/${docId}`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-            body: fd,
-          });
-        }
-        await refetch();
-      } else {
-        alert(langue === "fr" ? "Erreur lors de l'import" : "خطأ أثناء الاستيراد");
-      }
-    } catch (err) {
-      console.error("Quick import error:", err);
-      alert(langue === "fr" ? "Erreur lors de l'import" : "خطأ أثناء الاستيراد");
-    }
-    e.target.value = "";
-  };
-
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -850,14 +801,14 @@ export default function Home() {
       const numeroOrdreFinal = reference.trim();
 
       if (!numeroOrdreFinal) {
-        alert(langue === "fr" ? "Veuillez saisir la référence du document" : "يرجى إدخال مرجع الوثيقة");
+        alert(cur.entrerReference);
         setIsSubmitting(false);
         return;
       }
 
       if (vueActive === "entrant-admin") {
         if (!modeTraitement) {
-          alert(langue === "fr" ? "Veuillez sélectionner un mode de traitement" : "يرجى اختيار نمط المعالجة");
+          alert(cur.choisirModeTraitement);
           setIsSubmitting(false);
           return;
         }
@@ -923,7 +874,7 @@ export default function Home() {
           tribunalDestination: tribunalDestinationSortant
         };
       } else {
-        alert(langue === "fr" ? "Enregistrement simulé pour cette catégorie" : "تسجيل تجريبي لهذه الفئة");
+        alert(cur.enregistrementSimule);
         await refetch();
         resetForm();
         setIsSubmitting(false);
@@ -973,6 +924,7 @@ export default function Home() {
           }
         } catch (uploadErr) {
           console.error("Upload error:", uploadErr);
+          alert(cur.erreurBackend);
         }
       }
 
@@ -980,7 +932,7 @@ export default function Home() {
       await new Promise(r => setTimeout(r, 500));
       await refetch();
 
-      alert(data.message || (langue === "fr" ? "Enregistré avec succès !" : "تم التسجيل بنجاح !"));
+      alert(data.message || cur.enregistreSuccesPoint);
       await refetch();
       resetForm();
       setVueActive("dashboard");
@@ -996,7 +948,7 @@ export default function Home() {
         msg = cur.errServeur;
       }
       setErrorMessage(msg);
-      alert((langue === "fr" ? "Erreur : " : "خطأ : ") + msg);
+      alert(cur.erreurPrefix + msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -1068,16 +1020,17 @@ export default function Home() {
   };
 
   const confirmTransfer = async (services?: string[]) => {
+    if (!canTransfer) { alert(cur.permissionRefusee); return; }
     const docsToProcess = (batchTransferDocs.length > 0 ? batchTransferDocs : (transferModalDoc ? [transferModalDoc] : [])).filter(doc => doc.transmissible !== "Non");
     if (docsToProcess.length === 0) return;
     const servicesToTransfer = services || selectedServices;
     if (servicesToTransfer.length === 0) {
-      alert(langue === "fr" ? "Veuillez choisir au moins un service destinataire" : "يرجى اختيار مصلحة واحدة على الأقل");
+      alert(cur.choisirServiceDest);
       return;
     }
 
     if (!token) {
-      alert(langue === "fr" ? "Session expirée. Veuillez vous reconnecter." : "انتهت الجلسة. يرجى إعادة تسجيل الدخول.");
+      alert(cur.sessionExpiree);
       return;
     }
 
@@ -1107,7 +1060,7 @@ export default function Home() {
           if (res.ok) {
             successCount++;
           } else if (res.status === 401) {
-            alert(langue === "fr" ? "Session expirée. Reconnectez-vous." : "انتهت الجلسة. أعد تسجيل الدخول.");
+            alert(cur.sessionExpiree);
             logout();
             setTransferModalDoc(null);
             setBatchTransferDocs([]);
@@ -1141,7 +1094,7 @@ export default function Home() {
         : lastError.includes("fetch")
           ? (langue === "fr" ? "\n\nBackend inaccessible. Vérifiez que le serveur tourne sur port 5200." : "\n\nالخادم غير متاح. تأكد من تشغيل الخادم على البورت 5200.")
           : "";
-      alert((langue === "fr" ? "Échec du transfert" : "فشل التحويل") + lastError + hint);
+      alert(cur.echecTransfert + lastError + hint);
     }
 
     setTransferModalDoc(null);
@@ -1167,6 +1120,7 @@ export default function Home() {
   };
 
   const archiveSelection = async () => {
+    if (!canArchive) { alert(cur.permissionRefusee); return; }
     const updates = selectedIds.reduce<Record<number, Partial<CourrierSimule>>>((acc, id) => {
       acc[id] = { serviceActuel: getServiceLabel("Archive", langue), statut: getStatusLabel("Archive", langue) };
       return acc;
@@ -1182,6 +1136,7 @@ export default function Home() {
         await refetch();
       } catch (err) {
         console.warn("Archivage local uniquement:", err);
+        alert(cur.erreurBackend);
       }
     }
     setSelectedIds([]);
@@ -1205,10 +1160,12 @@ export default function Home() {
       await refetch();
     } catch (err) {
       console.warn("Statut appliqué localement, backend inaccessible:", err);
+      alert(cur.erreurBackend);
     }
   };
 
   const handleDelete = async (doc: CourrierSimule) => {
+    if (!canDelete) { alert(cur.permissionRefusee); return; }
     const confirmMsg = langue === "fr"
       ? "Voulez-vous vraiment supprimer ce document ?"
       : "هل تريد بالتأكيد حذف هذه الوثيقة ؟";
@@ -1221,7 +1178,7 @@ export default function Home() {
         : `${BASE_URL}/api/CourrierAdmin/${doc.id}`;
 
     if (!token) {
-      alert(langue === "fr" ? "Connectez-vous pour supprimer." : "سجّل الدخول للحذف.");
+      alert(cur.connecterSuppression);
       return;
     }
 
@@ -1237,19 +1194,16 @@ export default function Home() {
       }
 
       setSelectedIds((current) => current.filter((id) => id !== doc.id));
-      alert(langue === "fr" ? "Document supprimé." : "تم حذف الوثيقة.");
+      alert(cur.documentSupprime);
       await refetch();
     } catch (err: any) {
       console.error("Erreur suppression:", err);
-      alert(
-        langue === "fr"
-          ? `Erreur : ${err.message || "backend inaccessible"}`
-          : `خطأ : ${err.message || "الخادم غير متاح"}`
-      );
+      alert(`${cur.erreurPrefix} ${err.message || cur.erreurBackend}`);
     }
   };
 
   const registerRetrait = (row: { id: number; reference: string; objet: string }) => {
+    if (!canRetrait) { alert(cur.permissionRefusee); return; }
     setRetraitDoc({ id: row.id, reference: row.reference, objet: row.objet });
   };
 
@@ -1297,10 +1251,10 @@ export default function Home() {
                 {vueActive === "sortant-demande" && cur.demandeMenu}
                 {vueActive === "admin-utilisateurs" && cur.utilisateurs}
                 {vueActive === "admin-services" && cur.services}
-                {vueActive === "admin-permissions" && (langue === "fr" ? "Permissions" : "الصلاحيات")}
+                {vueActive === "admin-permissions" && cur.permissions}
                 {vueActive === "admin-equipements" && cur.equipements}
                 {vueActive === "notifications" && cur.notifications}
-                {vueActive === "profil" && (langue === "fr" ? "Mon profil" : "ملفي الشخصي")}
+                {vueActive === "profil" && cur.monProfilPage}
             </h1>
             <p className="text-[11px] font-bold text-slate-500 mt-0.5">{cur.courAppel} • {cur.royaume}</p>
           </div>
@@ -1327,6 +1281,7 @@ export default function Home() {
               onViewDoc={(doc: CourrierSimule) => { setSelectedDocument(doc); setShowModal(true); }}
               onTransferDoc={openTransfer}
               onDeleteDoc={handleDelete}
+              canDelete={canDelete}
               onOpenDoc={(doc: CourrierSimule) => setWorkspaceDocId(doc.id)}
               onMarquerEnvoye={(id: number) => changerStatutSortant(id, "Envoye")}
               onMarquerAttente={(id: number) => changerStatutSortant(id, "EnAttente")}
@@ -1397,11 +1352,9 @@ export default function Home() {
                       type="button"
                       onClick={() => downloadExcelTemplate(langue)}
                       className="px-3 py-1.5 rounded-lg bg-teal-50 text-teal-700 text-[10px] font-bold border border-teal-200 hover:bg-teal-100 cursor-pointer flex items-center gap-1"
-                    >
-                      📋 {langue === "fr" ? "Télécharger modèle" : "تحميل النموذج"}
+                    >                        📋 {cur.chargerModele}
                     </button>
-                    <label className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[10px] font-bold border border-violet-700 hover:bg-violet-700 cursor-pointer flex items-center gap-1">
-                      📥 {langue === "fr" ? "Import Excel" : "استيراد Excel"}
+                    <label className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[10px] font-bold border border-violet-700 hover:bg-violet-700 cursor-pointer flex items-center gap-1">                        📥 {cur.importExcel}
                       <input type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
                     </label>
                   </div>
@@ -1415,7 +1368,7 @@ export default function Home() {
                       {cur.mesDocuments} ({filteredGeneral.length})
                     </h3>
                     <p className="text-[11px] text-slate-500 font-semibold">
-                      {selectedIds.length} {langue === "fr" ? "document(s) sélectionné(s)" : "وثيقة محددة"}
+                      {selectedIds.length} {cur.doc_selectionne}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -1424,7 +1377,7 @@ export default function Home() {
                       onClick={() => {
                         const docs = filteredGeneral.filter((item) => selectedIds.includes(item.id) && item.transmissible !== "Non");
                         if (docs.length === 0) {
-                          alert(langue === "fr" ? "Aucun document transférable sélectionné (les documents non transmissibles sont exclus)" : "لا توجد وثائق قابلة للتحويل (الوثائق غير القابلة للتحويل مستبعدة)");
+                          alert(langue === "fr" ? "Aucun document transférable sélectionné" : "لا توجد وثائق قابلة للتحويل");
                           return;
                         }
                         if (docs.length === 1) {
@@ -1591,7 +1544,7 @@ export default function Home() {
                     onClick={() => { setShowCorbeille(true); fetchCorbeille(); }}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition ${showCorbeille ? "bg-red-600 text-white" : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"}`}
                   >
-                    {langue === "fr" ? "Corbeille" : "سلة المهملات"} ({corbeilleDocs.length})
+                    {cur.corbeille} ({corbeilleDocs.length})
                   </button>
                 )}
               </div>
@@ -1691,7 +1644,7 @@ export default function Home() {
               ) : (
                 <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-slate-200">
-                    <h3 className="font-bold text-slate-900 text-sm">{langue === "fr" ? "Documents supprimés" : "المحذوفات"}</h3>
+                    <h3 className="font-bold text-slate-900 text-sm">{cur.documentsSupprimes}</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
@@ -1705,7 +1658,7 @@ export default function Home() {
                       </thead>
                       <tbody>
                         {corbeilleDocs.length === 0 ? (
-                          <tr><td colSpan={4} className="p-6 text-center text-slate-400">{langue === "fr" ? "Aucun document supprimé" : "لا توجد مستندات محذوفة"}</td></tr>
+                          <tr><td colSpan={4} className="p-6 text-center text-slate-400">{cur.aucunSupprime}</td></tr>
                         ) : (
                           corbeilleDocs.map((doc) => (
                             <tr key={doc.id} className="border-b border-slate-100 hover:bg-red-50/30">
@@ -1718,7 +1671,7 @@ export default function Home() {
                                   onClick={() => restoreDocument(doc.id)}
                                   className="px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold"
                                 >
-                                  {langue === "fr" ? "Restaurer" : "استعادة"}
+                                  {cur.restaurer}
                                 </button>
                               </td>
                             </tr>
@@ -1769,12 +1722,17 @@ export default function Home() {
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder={langue === "fr" ? "Rechercher par référence, titre, source, service..." : "بحث بالمرجع، العنوان، المصدر، المصلحة..."}
+                      placeholder={cur.recherche_placeholder}
                       className="flex-1 min-w-64 p-3 border border-slate-300 dark:border-slate-600 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50 dark:bg-slate-700 dark:text-slate-200"
                     />
                     <button
                       type="button"
-                      onClick={() => {}}
+                      onClick={() => {
+                        // If no search term, toggle the local search
+                        if (!searchTerm.trim()) {
+                          setSearchTerm(cur.recherche_exemple);
+                        }
+                      }}
                       className="px-6 py-3 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition"
                     >
                       {cur.lancerRecherche}
@@ -1784,42 +1742,42 @@ export default function Home() {
                       onClick={searchLocalDirectory}
                       className="px-6 py-3 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 transition"
                     >
-                      {langue === "fr" ? "Rechercher sur mon PC" : "البحث في جهازي"}
+                      {cur.recherchePC}
                     </button>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-3">
                     <select value={searchFilterService} onChange={(e) => setSearchFilterService(e.target.value)} className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-700 dark:text-slate-200 outline-none">
-                      <option value="">{langue === "fr" ? "Tous les services" : "جميع المصالح"}</option>
+                      <option value="">{cur.tousLesServices}</option>
                       {[...new Set(visibleCourriers.map(d => d.serviceActuel))].sort().map(svc => (
                         <option key={svc} value={svc}>{getServiceLabel(svc, langue)}</option>
                       ))}
                     </select>
                     <select value={searchFilterType} onChange={(e) => setSearchFilterType(e.target.value)} className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-700 dark:text-slate-200 outline-none">
-                      <option value="">{langue === "fr" ? "Tous les types" : "جميع الأنواع"}</option>
+                      <option value="">{cur.tousLesTypes}</option>
                       <option value="entrant-admin">{cur.admin}</option>
                       <option value="entrant-juridique">{cur.juridique}</option>
                       <option value="sortant-normal">{cur.normal}</option>
                       <option value="sortant-demande">{cur.demande}</option>
                     </select>
-                    <input type="date" value={searchFilterDateDebut} onChange={(e) => setSearchFilterDateDebut(e.target.value)} className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-700 dark:text-slate-200 outline-none" title={langue === "fr" ? "Date début" : "تاريخ البداية"} />
-                    <input type="date" value={searchFilterDateFin} onChange={(e) => setSearchFilterDateFin(e.target.value)} className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-700 dark:text-slate-200 outline-none" title={langue === "fr" ? "Date fin" : "تاريخ النهاية"} />
+                    <input type="date" value={searchFilterDateDebut} onChange={(e) => setSearchFilterDateDebut(e.target.value)} className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-700 dark:text-slate-200 outline-none" title={cur.dateDebut} />
+                    <input type="date" value={searchFilterDateFin} onChange={(e) => setSearchFilterDateFin(e.target.value)} className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-700 dark:text-slate-200 outline-none" title={cur.dateFin} />
                     {(searchFilterService || searchFilterType || searchFilterDateDebut || searchFilterDateFin) && (
                       <button type="button" onClick={() => { setSearchFilterService(""); setSearchFilterType(""); setSearchFilterDateDebut(""); setSearchFilterDateFin(""); }} className="px-3 py-2 text-[11px] font-bold text-red-600 hover:text-red-800 underline">
-                        {langue === "fr" ? "Effacer filtres" : "مسح الفلاتر"}
+                        {cur.effacerFiltres}
                       </button>
                     )}
                   </div>
                   {searchLocalFiles && (
                     <div className="mt-3 flex items-center gap-2 text-xs">
                       <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded font-bold">
-                        {localFiles.length} {langue === "fr" ? "fichiers locaux chargés" : "ملف محلي محمل"}
+                        {localFiles.length} {cur.fichiersCharges}
                       </span>
                       <button
                         type="button"
                         onClick={() => { setSearchLocalFiles(false); setLocalFiles([]); }}
                         className="text-red-500 hover:text-red-700 font-bold underline"
                       >
-                        {langue === "fr" ? "Décharger" : "إلغاء التحميل"}
+                        {cur.decharger}
                       </button>
                     </div>
                   )}
@@ -1829,7 +1787,7 @@ export default function Home() {
                   <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                     <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                       <h3 className="font-bold text-xs text-slate-800">
-                        {langue === "fr" ? `Résultats pour "${searchTerm}"` : `نتائج البحث عن "${searchTerm}"`} ({searchResults.length})
+                        {cur.resultatsPour(searchTerm)} ({searchResults.length})
                       </h3>
 <div className="flex gap-1.5">
                         <button type="button" onClick={() => exportRows(searchResults.map(d => ({
@@ -1852,7 +1810,7 @@ export default function Home() {
                     </div>
                     {searchResults.length === 0 ? (
                       <div className="p-12 text-center">
-                        <p className="text-slate-400 font-bold text-xs">{langue === "fr" ? "Aucun résultat trouvé" : "لا توجد نتائج"}</p>
+                        <p className="text-slate-400 font-bold text-xs">{cur.aucunResultatTrouve}</p>
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
@@ -1900,11 +1858,9 @@ export default function Home() {
                   </div>
                 ) : (
                   <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-12 text-center">
-                    <p className="text-base font-bold text-slate-900">{langue === "fr" ? "Recherche de dossiers" : "بحث عن ملفات"}</p>
+                    <p className="text-base font-bold text-slate-900">{cur.recherche_label}</p>
                     <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">
-                      {langue === "fr"
-                        ? "Saisissez une référence, un titre, un nom de source ou un service pour lancer la recherche."
-                        : "أدخل مرجعاً أو عنواناً أو اسم مصدر أو مصلحة لبدء البحث."}
+                      {cur.recherche_description}
                     </p>
                   </div>
                 )}
@@ -1922,10 +1878,10 @@ export default function Home() {
                         <table className="w-full text-xs">
                           <thead className="bg-purple-50 border-b border-purple-200 text-purple-700">
                             <tr>
-                              <th className="p-3 text-start">{langue === "fr" ? "Nom du fichier" : "اسم الملف"}</th>
-                              <th className="p-3 text-start">{langue === "fr" ? "Type" : "النوع"}</th>
-                              <th className="p-3 text-start">{langue === "fr" ? "Chemin" : "المسار"}</th>
-                              <th className="p-3 text-start">{langue === "fr" ? "Extrait" : "مقتطف"}</th>
+                              <th className="p-3 text-start">{cur.nomFichier}</th>
+                              <th className="p-3 text-start">{cur.tblType}</th>
+                              <th className="p-3 text-start">{cur.chemin}</th>
+                              <th className="p-3 text-start">{cur.extrait}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1998,7 +1954,7 @@ export default function Home() {
                           type="text"
                           value={reference}
                           onChange={(e) => setReference(e.target.value)}
-                          placeholder={langue === "fr" ? "Ex: BO-2026-99" : "مثال: م ض 2026-99"}
+                          placeholder={cur.recherche_exemple}
                           className="w-full border border-slate-300 p-3 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50/50"
                           required
                         />
@@ -2018,8 +1974,7 @@ export default function Home() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-2">
-                        {langue === "fr" ? "Service d'origine" : "مصدر الخدمة"}
+                      <label className="block text-xs font-bold text-slate-700 mb-2">                          {cur.serviceOrigine}
                       </label>
                       <input
                         type="text"

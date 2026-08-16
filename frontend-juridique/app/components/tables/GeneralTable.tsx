@@ -12,6 +12,7 @@ interface GeneralTableProps {
   onTransfer: (doc: CourrierSimule) => void;
   onDelete: (doc: CourrierSimule) => void;
   onOpen?: (doc: CourrierSimule) => void;
+  canDelete?: boolean;
   cur: any;
   langue?: "fr" | "ar";
   onExport?: (format: ExportFormat) => void;
@@ -27,6 +28,7 @@ export function GeneralTable({
   onTransfer,
   onDelete,
   onOpen,
+  canDelete = true,
   cur,
   langue = "fr",
   onExport,
@@ -57,7 +59,7 @@ export function GeneralTable({
           )}
           {onImportExcel && (
             <label className="px-2 py-1 rounded bg-violet-600 text-white text-[10px] font-bold border border-violet-700 hover:bg-violet-700 cursor-pointer">
-              📥 {langue === "fr" ? "Import Excel" : "استيراد Excel"}
+              📥 {cur.importExcel}
               <input ref={importExcelRef} type="file" accept=".xlsx,.xls" onChange={(e) => { const f = e.target.files?.[0]; if (f && onImportExcel) onImportExcel(f); e.target.value = ""; }} className="hidden" />
             </label>
           )}
@@ -78,7 +80,7 @@ export function GeneralTable({
               <th className="p-3 text-start">{cur.tblDate}</th>
               <th className="p-3 text-start">{cur.tblSource}</th>
               <th className="p-3 text-start">{cur.tblDest}</th>
-              <th className="p-3 text-center">{langue === "fr" ? "Avancement" : "التقدم"}</th>
+              <th className="p-3 text-center">{cur.avancement}</th>
               <th className="p-3 text-center">{cur.tblActions}</th>
             </tr>
           </thead>
@@ -139,7 +141,9 @@ export function GeneralTable({
                           {cur.btnSuivant}
                         </button>
                       )}
-                      <button onClick={() => onDelete(doc)} className="text-red-600 hover:text-red-800 font-bold px-2 py-1 rounded hover:bg-red-50">{cur.btnSupprimer}</button>
+                      {canDelete && (
+                        <button onClick={() => onDelete(doc)} className="text-red-600 hover:text-red-800 font-bold px-2 py-1 rounded hover:bg-red-50">{cur.btnSupprimer}</button>
+                      )}
                     </td>
                   </tr>
                 );

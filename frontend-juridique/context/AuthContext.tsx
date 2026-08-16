@@ -66,14 +66,59 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('user');
   };
 
+  const [adminOverrides, setAdminOverrides] = useState<Record<string, boolean>>({});
+
   const permissions = user?.permissions || [];
 
+  // Enhanced permission validation with admin override check
   const hasPermission = useCallback((key: string): boolean => {
     if (!user) return false;
-    // Admin always has all permissions
-    if (user.role === "Admin") return true;
-    return permissions.includes(key);
-  }, [user, permissions]);
+    
+    // First check if user has the base permission
+    if (!permissions.includes(key)) return false;
+    
+    // If user is admin, check if this permission is overridden
+    if (user.role === "Admin") {
+      // Check if this permission is in admin overrides (disabled)
+      return !adminOverrides[key]; // If not in overrides, it's enabled
+    }
+    
+    return true;
+  }, [user, permissions, adminOverrides]);
+
+  // Admin override validation - check if this permission is overridden for admin
+  const isAdminOverrideDisabled = useCallback((key: string): boolean => {
+    if (user?.role !== "Admin") return false;
+    // Check if this permission is in admin overrides (disabled)
+    return adminOverrides[key] === false;
+  }, [user, adminOverrides]);
+
+  // Fetch admin overrides from API
+  const fetchAdminOverrides = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5200'}/api/rbac/permissions/admin`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const overridesMap: Record<string, boolean> = {};
+        data.permissions.forEach((perm: any) => {
+          if (!perm.Enabled) {
+            overridesMap[perm.Key] = false;
+          }
+        });
+        setAdminOverrides(overridesMap);
+      }
+    } catch (error) {
+      console.error('Error fetching admin overrides:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.role === "Admin" && token) {
+      fetchAdminOverrides();
+    }
+  }, [user?.role, token]);
 
   const isAuthenticated = !!token && !!user;
 

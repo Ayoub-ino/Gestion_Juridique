@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -43,7 +44,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost]
-        [Authorize]
+        [RequirePermission("retrait_archive")]
         public async Task<IActionResult> CreateRetrait([FromBody] CreateRetraitDto dto)
         {
             var doc = await _context.Documents.FindAsync(dto.DocumentId);
@@ -69,7 +70,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPatch("{id}/annuler")]
-        [Authorize]
+        [RequirePermission("retrait_archive")]
         public async Task<IActionResult> AnnulerRetrait(int id)
         {
             var retrait = await _context.Retraits.FindAsync(id);
@@ -82,7 +83,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPatch("{id}/retourner")]
-        [Authorize]
+        [RequirePermission("retrait_archive")]
         public async Task<IActionResult> RetournerRetrait(int id)
         {
             var retrait = await _context.Retraits.FindAsync(id);
@@ -95,7 +96,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize]
+        [RequirePermission("retrait_archive")]
         public async Task<IActionResult> DeleteRetrait(int id)
         {
             var retrait = await _context.Retraits.FindAsync(id);
@@ -111,12 +112,12 @@ namespace WebApplication1.Controllers
     public class CreateRetraitDto
     {
         public int DocumentId { get; set; }
-        public string Reference { get; set; }
-        public string EffectuePar { get; set; }
-        public string MotifRetrait { get; set; }
-        public string Notes { get; set; }
+        public string Reference { get; set; } = string.Empty;
+        public string EffectuePar { get; set; } = string.Empty;
+        public string MotifRetrait { get; set; } = string.Empty;
+        public string Notes { get; set; } = string.Empty;
         public System.DateTime DateRetrait { get; set; }
         public System.DateTime? DateRetour { get; set; }
-        public string ServiceArchives { get; set; }
+        public string ServiceArchives { get; set; } = string.Empty;
     }
 }

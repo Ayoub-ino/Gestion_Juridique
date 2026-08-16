@@ -118,13 +118,13 @@ export function SortantForm({
         {/* Tribunal d'origine */}
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-2">
-            {langue === "fr" ? "Tribunal d'origine" : "المحكمة المصدرة"}
+            {cur.tribunalOrigine}
           </label>
           <input
             type="text"
             value={tribunalOrigine}
             onChange={(e) => setTribunalOrigine(e.target.value)}
-            placeholder={langue === "fr" ? "Ex: Cour d'Appel Administrative de Fès" : "مثال: محكمة الاستئناف الإدارية بفاس"}
+            placeholder={cur.tribunalOrigine}
             className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
           />
         </div>
@@ -132,13 +132,13 @@ export function SortantForm({
         {/* Tribunal de destination */}
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-2">
-            {langue === "fr" ? "Tribunal de destination" : "المحكمة المستقبلة"}
+            {cur.tribunalDestination}
           </label>
           <input
             type="text"
             value={tribunalDestination}
             onChange={(e) => setTribunalDestination(e.target.value)}
-            placeholder={langue === "fr" ? "Ex: Tribunal Administratif de Rabat" : "مثال: المحكمة الإدارية بالرباط"}
+            placeholder={cur.tribunalDestination}
             className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
           />
         </div>

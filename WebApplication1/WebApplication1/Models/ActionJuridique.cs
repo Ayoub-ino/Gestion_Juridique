@@ -9,13 +9,13 @@ namespace WebApplication1.Models
 
         // Clé étrangère vers le dossier juridique
         public int DossierId { get; set; }
-        public DossierJuridique Dossier { get; set; }
+        public DossierJuridique Dossier { get; set; } = null!;
 
         // Service concerné (ex: "BureauOrdre", "JalsatWaIjra2at")
-        public string Service { get; set; }
+        public string Service { get; set; } = string.Empty;
 
         // Type d'action (ex: "Enregistrement", "Attribution", "Validation", "Transaction")
-        public string Action { get; set; }
+        public string Action { get; set; } = string.Empty;
 
         // Commentaire optionnel
         public string? Commentaire { get; set; }

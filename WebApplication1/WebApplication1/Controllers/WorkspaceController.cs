@@ -8,6 +8,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -264,6 +265,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost("document/{id}/notes")]
+        [RequirePermission("ajouter_notes")]
         public async Task<IActionResult> AddNote(int id, [FromBody] AddNoteDto dto)
         {
             var doc = await _context.Documents.FindAsync(id);
@@ -289,6 +291,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPut("notes/{noteId}")]
+        [RequirePermission("ajouter_notes")]
         public async Task<IActionResult> UpdateNote(int noteId, [FromBody] AddNoteDto dto)
         {
             var note = await _context.DocumentNotes.FindAsync(noteId);
@@ -306,6 +309,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpDelete("notes/{noteId}")]
+        [RequirePermission("ajouter_notes")]
         public async Task<IActionResult> DeleteNote(int noteId)
         {
             var note = await _context.DocumentNotes.FindAsync(noteId);

@@ -151,7 +151,7 @@ export function GestionUtilisateurs({ langue, cur, token, BASE_URL, onExport }: 
         <div className="flex flex-wrap gap-3 items-center">
           <input
             type="text"
-            placeholder={langue === "fr" ? "Rechercher (nom, login)" : "بحث (الاسم، تسجيل الدخول)"}
+            placeholder={cur.recherche}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 min-w-64 p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50"
@@ -161,7 +161,7 @@ export function GestionUtilisateurs({ langue, cur, token, BASE_URL, onExport }: 
             onChange={(e) => setFilterService(e.target.value)}
             className="p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
           >
-            <option value="">{langue === "fr" ? "Tous les services" : "جميع المصالح"}</option>
+            <option value="">{cur.tousLesServices}</option>
             {rbacServices.map(svc => (
               <option key={svc.id} value={svc.id}>{svc.nom}</option>
             ))}
@@ -179,11 +179,11 @@ export function GestionUtilisateurs({ langue, cur, token, BASE_URL, onExport }: 
       {showForm && (
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
           <h3 className="font-bold text-sm text-slate-800 mb-4">
-            {editingId ? (langue === "fr" ? "Modifier l'utilisateur" : "تعديل المستخدم") : (langue === "fr" ? "Ajouter utilisateur" : "إضافة مستخدم")}
+            {editingId ? cur.modifierUtilisateur : cur.ajouterUtilisateur}
           </h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Nom complet *" : "الاسم الكامل *"}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{`${cur.nomComplet} *`}</label>
               <input type="text" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} required
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
@@ -193,17 +193,17 @@ export function GestionUtilisateurs({ langue, cur, token, BASE_URL, onExport }: 
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Mot de passe *" : "كلمة المرور *"}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{`${cur.motDePasse} *`}</label>
               <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder={editingId ? (langue === "fr" ? "Laisser vide pour ne pas changer" : "اتركه فارغاً لعدم التغيير") : ""}
                 required={!editingId}
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{langue === "fr" ? "Service *" : "المصلحة *"}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{`${cur.service} *`}</label>
               <select value={form.serviceId} onChange={(e) => setForm({ ...form, serviceId: parseInt(e.target.value) })} required
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500">
-                <option value={0}>{langue === "fr" ? "Sélectionner un service" : "اختر مصلحة"}</option>
+                <option value={0}>{cur.selectionnerService}</option>
                 {rbacServices.map(svc => (
                   <option key={svc.id} value={svc.id}>{svc.nom}</option>
                 ))}
@@ -211,7 +211,7 @@ export function GestionUtilisateurs({ langue, cur, token, BASE_URL, onExport }: 
             </div>
             <div className="md:col-span-4 flex gap-2">
               <button type="submit" className="px-6 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">
-                {editingId ? (langue === "fr" ? "Modifier" : "تعديل") : cur.ajouter}
+                {editingId ? cur.editer : cur.ajouter}
               </button>
               <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }}
                 className="px-6 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition">
@@ -225,17 +225,17 @@ export function GestionUtilisateurs({ langue, cur, token, BASE_URL, onExport }: 
       <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 className="font-bold text-slate-800 text-xs">
-            {langue === "fr" ? "Utilisateurs" : "المستخدمون"}
+            {cur.utilisateurs}
           </h3>
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500">
-              {filtered.length} {langue === "fr" ? "utilisateurs" : "مستخدم"}
+              {filtered.length} {cur.utilisateurs}
             </span>
             <button
               onClick={() => { setShowArchived(true); fetchArchivedUsers(); }}
               className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2 text-xs"
             >
-              🗂️ {langue === "fr" ? "Voir les utilisateurs archivés" : "عرض المستخدمين المؤرشفة"}
+              🗂️ {cur.voirArchives}
             </button>
             {onExport && (
               <div className="flex gap-1">
@@ -257,18 +257,18 @@ export function GestionUtilisateurs({ langue, cur, token, BASE_URL, onExport }: 
               <thead className="bg-sky-50 border-b border-sky-200 text-slate-700">
                 <tr>
                   <th className="p-3 text-start">ID</th>
-                  <th className="p-3 text-start">{langue === "fr" ? "Nom complet" : "الاسم الكامل"}</th>
+                  <th className="p-3 text-start">{cur.nomComplet}</th>
                   <th className="p-3 text-start">{cur.login}</th>
-                  <th className="p-3 text-start">{langue === "fr" ? "Service" : "المصلحة"}</th>
-                  <th className="p-3 text-start">{langue === "fr" ? "Date de suppression" : "تاريخ الحذف"}</th>
+                  <th className="p-3 text-start">{cur.service}</th>
+                  <th className="p-3 text-start">{cur.dateSuppression}</th>
                   <th className="p-3 text-center">{cur.tblActions}</th>
                 </tr>
               </thead>
               <tbody>
                 {loadingArchived ? (
-                  <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-bold">{langue === "fr" ? "Chargement..." : "جاري التحميل..."}</td></tr>
+                  <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-bold">{cur.loadingText}</td></tr>
                 ) : archivedUsers.length === 0 ? (
-                  <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-bold">{langue === "fr" ? "Aucun utilisateur archivé" : "لا يوجد مستخدمين مؤرشفة"}</td></tr>
+                  <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-bold">{cur.aucunArchive}</td></tr>
                 ) : (
                   archivedUsers.map(u => (
                     <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50">
@@ -287,7 +287,7 @@ export function GestionUtilisateurs({ langue, cur, token, BASE_URL, onExport }: 
                             onClick={() => handleRestoreUser(u.id)}
                             className="px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold"
                           >
-                            {langue === "fr" ? "Restaurer" : "استعادة"}
+                            {cur.restaurer}
                           </button>
                         </div>
                       </td>
@@ -303,9 +303,9 @@ export function GestionUtilisateurs({ langue, cur, token, BASE_URL, onExport }: 
               <thead className="bg-sky-50 border-b border-sky-200 text-slate-700">
                 <tr>
                   <th className="p-3 text-start">ID</th>
-                  <th className="p-3 text-start">{langue === "fr" ? "Nom complet" : "الاسم الكامل"}</th>
+                  <th className="p-3 text-start">{cur.nomComplet}</th>
                   <th className="p-3 text-start">{cur.login}</th>
-                  <th className="p-3 text-start">{langue === "fr" ? "Service" : "المصلحة"}</th>
+                  <th className="p-3 text-start">{cur.service}</th>
                   <th className="p-3 text-center">{cur.tblActions}</th>
                 </tr>
               </thead>
@@ -327,7 +327,7 @@ export function GestionUtilisateurs({ langue, cur, token, BASE_URL, onExport }: 
                         <div className="flex justify-center gap-2">
                           <button type="button" onClick={() => startEdit(u)}
                             className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold">
-                            {langue === "fr" ? "Modifier" : "تعديل"}
+                            {cur.editer}
                           </button>
                           <button type="button" onClick={() => handleDelete(u.id)}
                             className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold">

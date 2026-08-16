@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
 using WebApplication1.Helpers;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -56,7 +57,7 @@ namespace WebApplication1.Controllers
                     documentId = t.DocumentId,
                     documentType = t.Document is CourrierAdministratif ? "entrant-admin"
                                  : t.Document is DossierJuridique ? "entrant-juridique"
-                                 : t.Document is CourrierSortant ? (t.Document as CourrierSortant).TypeSortant == "demande" ? "sortant-demande" : "sortant-normal"
+                                 : t.Document is CourrierSortant ? ((CourrierSortant)t.Document).TypeSortant == "demande" ? "sortant-demande" : "sortant-normal"
                                  : "unknown",
                     documentSujet = t.Document.Objet ?? t.Document.Sujet ?? "",
                     sourceServiceId = t.ServiceOrigine.ToString(),
@@ -117,6 +118,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPut("{id}/accepter")]
+        [RequirePermission("accepter")]
         public async Task<IActionResult> Accepter(int id, [FromBody] CommentDto dto)
         {
             var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -134,9 +136,10 @@ namespace WebApplication1.Controllers
             if (transaction.Statut != StatutTransaction.EnAttente)
                 return BadRequest(new { error = "Cette transaction n'est plus en attente" });
 
+            // Permission 'accepter' is enforced by the middleware ([RequirePermission]);
+            // here we only enforce the service-ownership check.
             var userEnum = ServiceMapper.MapToServiceEnum(user.Service ?? "");
-            var isAcceptAdmin = user.Role == "Admin" || user.Role == "Greffier" || user.Role == "Directeur" || user.Role == "Consultant";
-            if (transaction.ServiceDestination != userEnum && !isAcceptAdmin)
+            if (transaction.ServiceDestination != userEnum)
                 return Forbid();
 
             transaction.Statut = StatutTransaction.Accepte;
@@ -172,6 +175,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPut("{id}/refuser")]
+        [RequirePermission("refuser")]
         public async Task<IActionResult> Refuser(int id, [FromBody] RefusDto dto)
         {
             var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -189,9 +193,10 @@ namespace WebApplication1.Controllers
             if (transaction.Statut != StatutTransaction.EnAttente)
                 return BadRequest(new { error = "Cette transaction n'est plus en attente" });
 
+            // Permission 'refuser' is enforced by the middleware ([RequirePermission]);
+            // here we only enforce the service-ownership check.
             var userEnum = ServiceMapper.MapToServiceEnum(user.Service ?? "");
-            var isRefuseAdmin = user.Role == "Admin" || user.Role == "Greffier" || user.Role == "Directeur" || user.Role == "Consultant";
-            if (transaction.ServiceDestination != userEnum && !isRefuseAdmin)
+            if (transaction.ServiceDestination != userEnum)
                 return Forbid();
 
             transaction.Statut = StatutTransaction.Refuse;

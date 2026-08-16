@@ -7,6 +7,7 @@ using WebApplication1.Data;
 using WebApplication1.Models;
 using WebApplication1.DTO;
 using WebApplication1.Helpers;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -23,7 +24,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost]
-        [Authorize]
+        [RequirePermission("creer_modifier")]
         public async Task<IActionResult> Create([FromBody] SortantDto dto)
         {
             if (dto == null)
@@ -51,9 +52,9 @@ namespace WebApplication1.Controllers
                     DestinataireExterne = dto.Destinataire,
                     TypeSortant = dto.TypeSortant ?? "normal",
                     DateEnvoi = dto.DateEnvoi ?? DateTime.Now,
-                    NumeroEnvoi = dto.NumeroEnvoi ?? dto.Reference,
-                    TribunalOrigine = dto.TribunalOrigine,
-                    TribunalDestination = dto.TribunalDestination
+                    NumeroEnvoi = dto.NumeroEnvoi ?? dto.Reference ?? "",
+                    TribunalOrigine = dto.TribunalOrigine ?? "",
+                    TribunalDestination = dto.TribunalDestination ?? ""
                 };
 
                 _context.CourriersSortants.Add(sortant);
@@ -113,6 +114,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> UpdateStatut(int id, [FromBody] UpdateStatutDto dto)
         {
             try
@@ -150,6 +152,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("supprimer")]
         public async Task<IActionResult> Delete(int id)
         {
             var sortant = await _context.CourriersSortants.FindAsync(id);
@@ -162,7 +165,7 @@ namespace WebApplication1.Controllers
         }
         public class UpdateStatutDto
         {
-            public string Statut { get; set; }
+            public string Statut { get; set; } = string.Empty;
         }
 
 

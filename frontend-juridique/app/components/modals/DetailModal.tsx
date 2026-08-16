@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CourrierSimule } from "@/app/types";
+import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, getRoleLabel, WORKFLOW_STEPS, getWorkflowProgress, getDelayDays } from "@/lib/constants";
 
 interface DetailModalProps {
@@ -61,6 +62,8 @@ interface DocDetails {
 }
 
 export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur, langue = "fr", token, BASE_URL }: DetailModalProps) {
+  const { hasPermission } = useAuth();
+  const canAddNotes = hasPermission("ajouter_notes");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [docDetails, setDocDetails] = useState<DocDetails | null>(null);
@@ -159,7 +162,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
         body: JSON.stringify(editedFields),
       });
       if (res.ok) {
-        setSuccessMsg(langue === "fr" ? "Enregistré avec succès" : "تم الحفظ بنجاح");
+        setSuccessMsg(cur.enregistreSucces);
         setEditMode(false);
         fetchDocDetails();
         if (onSaved) onSaved();
@@ -173,6 +176,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
   };
 
   const handleSaveNote = async () => {
+    if (!canAddNotes) { alert(cur.permissionRefusee); return; }
     if (!doc || !token || !BASE_URL || !note.trim()) return;
     setSavingNote(true);
     try {
@@ -183,7 +187,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
       });
       if (res.ok) {
         setNote("");
-        setSuccessMsg(langue === "fr" ? "Note ajoutée" : "تمت إضافة ملاحظة");
+        setSuccessMsg(cur.noteAjoutee);
         setTimeout(() => setSuccessMsg(""), 3000);
       }
     } catch (err) {
@@ -203,9 +207,9 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
   };
 
   const getStatutLabel = (statut: string) => {
-    if (statut === "EnAttente") return langue === "fr" ? "En attente" : "في الانتظار";
-    if (statut === "Accepte") return langue === "fr" ? "Accepté" : "مقبول";
-    if (statut === "Refuse") return langue === "fr" ? "Refusé" : "مرفوض";
+    if (statut === "EnAttente") return cur.enAttente;
+    if (statut === "Accepte") return cur.statAcceptees;
+    if (statut === "Refuse") return cur.statRefusees;
     return statut;
   };
 
@@ -244,15 +248,15 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
         <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
             {editMode
-              ? (langue === "fr" ? "Modification du dossier" : "تعديل الملف")
-              : (langue === "fr" ? "Détail du dossier" : "تفاصيل الملف")}
+              ? cur.modificationDossier
+              : cur.detailDossier}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl">×</button>
         </div>
 
         <div className="p-5 space-y-4">
           {loadingDoc ? (
-            <p className="text-center text-slate-400 py-8">{langue === "fr" ? "Chargement..." : "جاري التحميل..."}</p>
+            <p className="text-center text-slate-400 py-8">{cur.loadingText}</p>
           ) : (
             <>
               {/* Success Message */}
@@ -266,7 +270,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
               <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                    {langue === "fr" ? "Avancement" : "التقدم"}
+                    {cur.avancement}
                   </span>
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{progress.label}</span>
                 </div>
@@ -277,8 +281,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                     return (
                       <div key={i} className="flex-1">
                         <div className={`h-2 rounded-full ${isActive ? (isCurrent ? "bg-blue-500" : "bg-emerald-500") : "bg-slate-200 dark:bg-slate-600"}`}></div>
-                        <p className={`text-[9px] mt-1 text-center ${isCurrent ? "text-blue-600 font-bold" : "text-slate-400"}`}>
-                          {langue === "fr" ? step.labelFr : step.labelAr}
+                        <p className={`text-[9px] mt-1 text-center ${isCurrent ? "text-blue-600 font-bold" : "text-slate-400"}`}>                           {langue === "fr" ? step.labelFr : step.labelAr}
                         </p>
                       </div>
                     );
@@ -291,7 +294,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800">
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
                   <span className="text-xs font-bold text-red-700 dark:text-red-400">
-                    {langue === "fr" ? `En retard de ${delayDays} jours` : `متأخر بـ ${delayDays} يوم`}
+                    {cur.enRetard ? (typeof cur.enRetard === 'function' ? cur.enRetard(delayDays) : cur.enRetard) : `En retard: ${delayDays}j`}
                   </span>
                 </div>
               )}
@@ -307,20 +310,19 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                 {renderField(cur.tblSource, "Expediteur", docDetails?.Expediteur || doc.source)}
                 {renderField(cur.tblTitre, "Objet", docDetails?.Objet || doc.objet)}
                 {renderField(cur.serviceActuel, "ServiceActuel", typeof docDetails?.ServiceActuel === "string" ? docDetails.ServiceActuel : doc.serviceActuel)}
-                {docDetails?.type === "entrant-juridique" && renderField(
-                  langue === "fr" ? "Demandeur" : "المطالب",
+                {docDetails?.type === "entrant-juridique" && renderField(                   cur.demandeur,
                   "Demandeur",
                   docDetails?.Demandeur
                 )}
                 {docDetails?.type === "sortant-normal" || docDetails?.type === "sortant-demande" ? (
                   <>
                     {renderField(
-                      langue === "fr" ? "Tribunal origine" : "المحكمة المصدرة",
+                      cur.tribunalOrigine,
                       "TribunalOrigine",
                       docDetails?.TribunalOrigine
                     )}
                     {renderField(
-                      langue === "fr" ? "Tribunal destination" : "المحكمة المستقبلة",
+                      cur.tribunalDestination,
                       "TribunalDestination",
                       docDetails?.TribunalDestination
                     )}
@@ -334,7 +336,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                 {docDetails?.TypeCircuit && (
                   <div className="col-span-2">
                     {renderField(
-                      langue === "fr" ? "Type circuit" : "نوع الدائرة",
+                      cur.tblType,
                       "TypeCircuit",
                       docDetails.TypeCircuit
                     )}
@@ -343,7 +345,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                 {docDetails?.MotifException && (
                   <div className="col-span-2">
                     {renderField(
-                      langue === "fr" ? "Motif exception" : "سبب الاستثناء",
+                      cur.commentaire,
                       "MotifException",
                       docDetails.MotifException
                     )}
@@ -353,8 +355,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
 
               {/* Fichier joint - Section séparée */}
               <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
-                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
-                  {langue === "fr" ? "Fichier joint" : "المرفق"}
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">                   {cur.fichierJoint}
                 </p>
                 {docDetails?.filePath ? (
                   <>
@@ -364,7 +365,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                         onClick={() => setShowPreview(!showPreview)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${showPreview ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"}`}
                       >
-                        {showPreview ? (langue === "fr" ? "👁 Masquer l'aperçu" : "👁 إخفاء العرض") : (langue === "fr" ? "👁 Visualiser" : "👁 عرض")}
+                        {showPreview ? (cur.fermer) : (cur.btnVoir)}
                       </button>
                       <a
                         href={`${BASE_URL}/api/FileUpload/${docDetails.filePath}`}
@@ -372,7 +373,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                         rel="noopener noreferrer"
                         className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold hover:bg-amber-100 transition"
                       >
-                        📎 {langue === "fr" ? "Ouvrir le fichier" : "فتح الملف"}
+                        📎 {cur.btnVoir}
                       </a>
                     </div>
                     {showPreview && (
@@ -403,22 +404,22 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                   </>
                 ) : (
                   <div className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 text-xs font-bold">
-                    {langue === "fr" ? "Aucun fichier joint" : "لا مرفق"}
+                    {cur.aucunFichierJoint}
                   </div>
                 )}
               </div>
 
               {/* Note */}
+              {canAddNotes && (
               <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
-                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  {langue === "fr" ? "Ajouter une note" : "إضافة ملاحظة"}
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">                   {cur.ajouterNote}
                 </p>
                 <div className="flex gap-2">
                   <textarea
                     rows={2}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder={langue === "fr" ? "Note / commentaire..." : "ملاحظة / تعليق..."}
+                    placeholder={cur.commentaire}
                     className="flex-1 p-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs dark:bg-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 resize-none"
                   />
                   <button
@@ -427,20 +428,19 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                     disabled={!note.trim() || savingNote}
                     className="self-end px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition"
                   >
-                    {savingNote ? "..." : (langue === "fr" ? "Ajouter" : "إضافة")}
+                    {savingNote ? "..." : cur.addNote}
                   </button>
                 </div>
               </div>
+              )}
 
               {/* Timeline */}
               <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
-                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  {langue === "fr" ? "Chronologie" : "الجدول الزمني"}
-                </h4>
-                {loadingHistory ? (
-                  <p className="text-xs text-slate-400">{langue === "fr" ? "Chargement..." : "جاري التحميل..."}</p>
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">                   {cur.chronologie}
+                </h4>                 {loadingHistory ? (
+                   <p className="text-xs text-slate-400">{cur.loadingText}</p>
                 ) : history.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">{langue === "fr" ? "Aucun mouvement" : "لا توجد تنقلات"}</p>
+                  <p className="text-xs text-slate-400 italic">{cur.aucunMouvement}</p>
                 ) : (
                   <div className="relative max-h-48 overflow-y-auto">
                     <div className="absolute start-3 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 via-emerald-500 to-slate-200"></div>
@@ -473,7 +473,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                                 <div className="text-[9px] text-red-600 dark:text-red-400 mt-1">
                                   {entry.motifRefus}
                                   {entry.doitRevenir && (
-                                    <span className="ms-1 text-amber-600 font-bold"> — {langue === "fr" ? "Retourné" : "أُعيد"}</span>
+                                    <span className="ms-1 text-amber-600 font-bold"> —                {cur.retourne}</span>
                                   )}
                                 </div>
                               )}
@@ -509,7 +509,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                     onClick={() => { setEditMode(false); fetchDocDetails(); }}
                     className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-300 dark:hover:bg-slate-500 transition"
                   >
-                    {langue === "fr" ? "Annuler" : "إلغاء"}
+                    {cur.annulerLabel}
                   </button>
                   <button
                     type="button"
@@ -517,7 +517,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                     disabled={saving}
                     className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 transition"
                   >
-                    {saving ? "..." : (langue === "fr" ? "Enregistrer" : "حفظ")}
+                    {saving ? "..." : cur.enregistrerLabel}
                   </button>
                 </>
               ) : (
@@ -527,7 +527,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, historique, cur
                     onClick={() => setEditMode(true)}
                     className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition"
                   >
-                    {langue === "fr" ? "Modifier" : "تعديل"}
+                    {cur.modifierLabel}
                   </button>
                   <button
                     type="button"

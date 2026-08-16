@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Langue } from "@/app/types";
+import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
 import { ExportFormat } from "@/lib/exportImport";
 
@@ -28,6 +29,9 @@ interface NotificationData {
 }
 
 export function NotificationsPage({ langue, cur, token, BASE_URL, onExport }: Props) {
+  const { hasPermission } = useAuth();
+  const canAccept = hasPermission("accepter");
+  const canRefuse = hasPermission("refuser");
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [commentaires, setCommentaires] = useState<Record<number, string>>({});
@@ -64,6 +68,7 @@ export function NotificationsPage({ langue, cur, token, BASE_URL, onExport }: Pr
   };
 
   const handleAccept = async (id: number) => {
+    if (!canAccept) { alert(cur.permissionRefusee); return; }
     try {
       await fetch(`${BASE_URL}/api/Transactions/${id}/accepter`, {
         method: "PUT",
@@ -75,6 +80,7 @@ export function NotificationsPage({ langue, cur, token, BASE_URL, onExport }: Pr
   };
 
   const handleRefuse = async (id: number) => {
+    if (!canRefuse) { alert(cur.permissionRefusee); return; }
     const motif = commentaires[id] || "";
     if (!motif) {
       alert(langue === "fr" ? "Veuillez saisir un motif" : "يرجى إدخال سبب الرفض");
@@ -153,14 +159,18 @@ export function NotificationsPage({ langue, cur, token, BASE_URL, onExport }: Pr
               <span className="text-[11px] text-slate-500 font-bold self-center">
                 {selectedIds.length} {langue === "fr" ? "sélectionnée(s)" : "محددة"}
               </span>
+              {canAccept && (
               <button type="button" onClick={handleAcceptSelected}
                 className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition">
                 {langue === "fr" ? "Accepter" : "قبول"} ({selectedIds.length})
               </button>
+              )}
+              {canRefuse && (
               <button type="button" onClick={handleRefuseSelected}
                 className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-[11px] font-bold hover:bg-red-600 transition">
                 {langue === "fr" ? "Refuser" : "رفض"} ({selectedIds.length})
               </button>
+              )}
             </>
           )}
           {pendingCount > 0 && (
@@ -232,14 +242,18 @@ export function NotificationsPage({ langue, cur, token, BASE_URL, onExport }: Pr
                             className="w-3 h-3" />
                           {langue === "fr" ? "Doit revenir" : "يجب الرجوع"}
                         </label>
+                        {canAccept && (
                         <button type="button" onClick={() => handleAccept(n.id)}
                           className="px-4 py-1.5 rounded bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition">
                           {langue === "fr" ? "Accepter" : "قبول"}
                         </button>
+                        )}
+                        {canRefuse && (
                         <button type="button" onClick={() => handleRefuse(n.id)}
                           className="px-4 py-1.5 rounded bg-red-500 text-white text-[11px] font-bold hover:bg-red-600 transition">
                           {langue === "fr" ? "Refuser" : "رفض"}
                         </button>
+                        )}
                       </div>
                     </div>
                   )}

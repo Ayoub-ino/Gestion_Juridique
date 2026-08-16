@@ -284,13 +284,15 @@ export function MesDossiersEnCoursView({
                             {cur.btnSuivant}
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(doc)}
-                          className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold"
-                        >
-                          {cur.btnSupprimer}
-                        </button>
+                        {hasPermission("supprimer") && (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(doc)}
+                            className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold"
+                          >
+                            {cur.btnSupprimer}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

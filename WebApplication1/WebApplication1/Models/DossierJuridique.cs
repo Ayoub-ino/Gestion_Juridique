@@ -8,10 +8,10 @@ namespace WebApplication1.Models
         public string? NumeroDossierJuridique { get; set; }
         public string? TypeCircuit { get; set; }        // "classique" ou "exception"
         public string? MotifException { get; set; }     // "islah", "mousaada", "ikhtissas"
-        public string Demandeur { get; set; }
+        public string Demandeur { get; set; } = string.Empty;
         public DateTime DateEntree { get; set; } = DateTime.Now;
-        public string EtapeJalsatActuelle { get; set; }
-        public string EtatGlobal { get; set; }
+        public string EtapeJalsatActuelle { get; set; } = string.Empty;
+        public string EtatGlobal { get; set; } = string.Empty;
 
         // NOUVEAUX CHAMPS pour le workflow (ceux que vous vouliez ajouter)
         public string? Circuit { get; set; }                // "maktab_dabt" ou "kitaba_khasa"

@@ -40,9 +40,9 @@ export function TransferModal({
 
   const { token } = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5200";
-  const [serviceUsers, setServiceUsers] = useState<{ id: number; nom: string; prenom: string; service: string }[]>([]);
+  const [serviceUsers, setServiceUsers] = useState<{ id: number; nom: string }[]>([]);
 
-  // When selected services change, fetch users filtered by the first selected service
+  // When selected services change, fetch users for each selected service
   useEffect(() => {
     if (selectedServices.length === 0) {
       setServiceUsers([]);
@@ -51,16 +51,24 @@ export function TransferModal({
     }
     const fetchUsers = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/api/Users`, {
-          headers: { Authorization: `Bearer ${token}` },
+        // Fetch users for all selected services in parallel
+        const promises = selectedServices.map(async (svc) => {
+          const res = await fetch(`${BASE_URL}/api/Users/by-service/${encodeURIComponent(svc)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) return await res.json();
+          return [];
         });
-        if (res.ok) {
-          const data = await res.json();
-          const filtered = Array.isArray(data)
-            ? data.filter((u: any) => selectedServices.includes(u.service))
-            : [];
-          setServiceUsers(filtered);
-        }
+        const results = await Promise.all(promises);
+        // Merge and deduplicate by user ID
+        const allUsers = results.flat();
+        const seen = new Set<number>();
+        const unique = allUsers.filter((u: any) => {
+          if (seen.has(u.id)) return false;
+          seen.add(u.id);
+          return true;
+        });
+        setServiceUsers(unique);
       } catch {
         setServiceUsers([]);
       }
@@ -252,7 +260,7 @@ export function TransferModal({
               </option>
               {serviceUsers.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.prenom} {u.nom}
+                  {u.nom}
                 </option>
               ))}
             </select>

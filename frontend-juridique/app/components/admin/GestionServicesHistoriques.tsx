@@ -85,8 +85,8 @@ export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Pro
 
       if (res.ok) {
         alert(editingId
-          ? (langue === "fr" ? "Service historique modifié" : "تم تعديل الخدمة التاريخية")
-          : (langue === "fr" ? "Service historique créé" : "تم إنشاء الخدمة التاريخية"));
+          ? cur.serviceHistoriqueModifie
+          : cur.serviceHistoriqueCree);
         setShowForm(false);
         setEditingId(null);
         setForm({ nom: "", code: "", description: "", parentId: "", sortOrder: 0, isActive: true });
@@ -102,7 +102,7 @@ export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Pro
 
   const handleDelete = async (id: number) => {
     if (!token) return;
-    if (!confirm(langue === "fr" ? "Supprimer ce service historique ?" : "حذف هذه الخدمة التاريخية؟")) return;
+    if (!confirm(cur.confirmerSuppression)) return;
 
     try {
       const res = await fetch(`${BASE_URL}/api/historical-services/${id}`, {
@@ -150,17 +150,13 @@ export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Pro
         <div className="flex flex-wrap gap-3 justify-between items-center">
           <div>
             <h3 className="font-bold text-base text-slate-800 mb-1">
-              {cur.gestionServicesHistoriques || (langue === "fr" ? "Gestion des Services Historiques" : "إدارة الخدمات التاريخية")}
+              {cur.gestionServicesHistoriques}
             </h3>
-            <p className="text-xs text-slate-500">
-              {langue === "fr"
-                ? "Services virtuels pour l'historique uniquement (pas de comptes utilisateurs)"
-                : "خدمات افتراضية للتاريخ فقط (بدون حسابات مستخدمين)"}
-            </p>
+            <p className="text-xs text-slate-500">{cur.serviceHistorique}</p>
           </div>
           <button type="button" onClick={handleNew}
             className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">
-            + {cur.nouveauServiceHistorique || (langue === "fr" ? "Nouveau Service Historique" : "خدمة تاريخية جديدة")}
+            + {cur.nouveauServiceHistorique}
           </button>
         </div>
       </div>
@@ -169,7 +165,7 @@ export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Pro
       <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
         <input
           type="text"
-          placeholder={cur.recherche || (langue === "fr" ? "Rechercher..." : "بحث...")}
+          placeholder={cur.recherche}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full max-w-md p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50"
@@ -181,53 +177,53 @@ export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Pro
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
           <h3 className="font-bold text-sm text-slate-800 mb-4">
             {editingId
-              ? (cur.modifierServiceHistorique || (langue === "fr" ? "Modifier Service Historique" : "تعديل خدمة تاريخية"))
-              : (cur.nouveauServiceHistorique || (langue === "fr" ? "Nouveau Service Historique" : "خدمة تاريخية جديدة"))}
+              ? cur.modifierServiceHistorique
+              : cur.nouveauServiceHistorique}
           </h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.nomService || (langue === "fr" ? "Nom du service *" : "اسم الخدمة *")}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{`${cur.nomService} *`}</label>
               <input type="text" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} required
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.codeService || (langue === "fr" ? "Code du service *" : "كود الخدمة *")}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{`${cur.codeService} *`}</label>
               <input type="text" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required
                 placeholder={langue === "fr" ? "ex: recherche" : "مثال: recherche"}
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.descriptionService || (langue === "fr" ? "Description" : "الوصف")}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.descriptionService}</label>
               <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.serviceParent || (langue === "fr" ? "Service parent" : "الخدمة الأب")}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.serviceParent}</label>
               <select value={form.parentId} onChange={(e) => setForm({ ...form, parentId: e.target.value })}
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500 bg-white">
-                <option value="">{cur.aucunServiceParent || (langue === "fr" ? "Aucun (racine)" : "لا شيء (جذر)")}</option>
+                <option value="">{cur.aucunServiceParent}</option>
                 {rootServices.map(s => (
                   <option key={s.id} value={s.id.toString()}>{s.nom}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.ordreAffichage || (langue === "fr" ? "Ordre d'affichage" : "ترتيب العرض")}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{cur.ordreAffichage}</label>
               <input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })}
                 className="w-full border border-slate-300 p-2.5 rounded-lg text-xs outline-none focus:border-blue-500" />
             </div>
             <div className="md:col-span-2 flex items-center gap-2">
               <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
                 className="w-4 h-4 rounded border-slate-300" />
-              <label className="text-xs text-slate-700">{cur.actif || (langue === "fr" ? "Actif" : "نشط")}</label>
+              <label className="text-xs text-slate-700">{cur.actif}</label>
             </div>
             <div className="md:col-span-2 flex items-end gap-2">
               <button type="submit" className="px-6 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">
-                {editingId ? (cur.modifierServiceHistorique || (langue === "fr" ? "Modifier" : "تعديل")) : (cur.ajouter || (langue === "fr" ? "Ajouter" : "إضافة"))}
+                {editingId ? cur.modifierServiceHistorique : cur.ajouter}
               </button>
               <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm({ nom: "", code: "", description: "", parentId: "", sortOrder: 0, isActive: true }); }}
                 className="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition">
-                {cur.annuler || (langue === "fr" ? "Annuler" : "إلغاء")}
+                {cur.annuler}
               </button>
             </div>
           </form>
@@ -238,7 +234,7 @@ export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Pro
       <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 className="font-bold text-slate-800 text-xs">
-            {cur.servicesHistoriques || (langue === "fr" ? "Services Historiques" : "الخدمات التاريخية")} ({filtered.length})
+            {cur.servicesHistoriques} ({filtered.length})
           </h3>
         </div>
         <div className="overflow-x-auto">
@@ -246,20 +242,20 @@ export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Pro
             <thead className="bg-sky-50 border-b border-sky-200 text-slate-700">
               <tr>
                 <th className="p-3 text-start">ID</th>
-                <th className="p-3 text-start">{cur.nomService || (langue === "fr" ? "Nom" : "الاسم")}</th>
-                <th className="p-3 text-start">{cur.codeService || (langue === "fr" ? "Code" : "الكود")}</th>
-                <th className="p-3 text-start">{cur.descriptionService || (langue === "fr" ? "Description" : "الوصف")}</th>
-                <th className="p-3 text-start">{cur.categorieService || (langue === "fr" ? "Catégorie" : "الفئة")}</th>
-                <th className="p-3 text-start">{cur.ordreAffichage || (langue === "fr" ? "Ordre" : "الترتيب")}</th>
-                <th className="p-3 text-center">{cur.actif || (langue === "fr" ? "Actif" : "نشط")}</th>
-                <th className="p-3 text-center">{cur.tblActions || (langue === "fr" ? "Actions" : "الإجراءات")}</th>
+                <th className="p-3 text-start">{cur.nomService}</th>
+                <th className="p-3 text-start">{cur.codeService}</th>
+                <th className="p-3 text-start">{cur.descriptionService}</th>
+                <th className="p-3 text-start">{cur.categorieService}</th>
+                <th className="p-3 text-start">{cur.ordreAffichage}</th>
+                <th className="p-3 text-center">{cur.actif}</th>
+                <th className="p-3 text-center">{cur.tblActions}</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
-                    {cur.servicesHistoriquesVides || (langue === "fr" ? "Aucun service historique pour le moment" : "لا توجد خدمات تاريخية حالياً")}
+                    {cur.servicesHistoriquesVides}
                   </td>
                 </tr>
               ) : (
@@ -292,11 +288,11 @@ export function GestionServicesHistoriques({ langue, cur, token, BASE_URL }: Pro
                       <div className="flex justify-center gap-2">
                         <button type="button" onClick={() => handleEdit(s)}
                           className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold">
-                          {cur.modifierServiceHistorique || (langue === "fr" ? "Modifier" : "تعديل")}
+                          {cur.modifierServiceHistorique}
                         </button>
                         <button type="button" onClick={() => handleDelete(s.id)}
                           className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold">
-                          {cur.supprimerServiceHistorique || (langue === "fr" ? "Supprimer" : "حذف")}
+                          {cur.supprimerServiceHistorique}
                         </button>
                       </div>
                     </td>
