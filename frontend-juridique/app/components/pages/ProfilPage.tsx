@@ -37,7 +37,9 @@ export function ProfilPage({ langue, cur, token, user }: Props) {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const data = await api.get<{ id: number; nom: string; service: string }[]>("/api/Users", token);
+      // /api/Users/actifs is the non-admin, lightweight user list (the plain
+      // /api/Users endpoint requires gerer_utilisateurs and would 403 here).
+      const data = await api.get<{ id: number; nom: string; service: string }[]>("/api/Users/actifs", token);
       setAllUsers(data.filter((u) => u.id !== user?.id));
     } catch (err) { console.error(err); }
   }, [user, token]);

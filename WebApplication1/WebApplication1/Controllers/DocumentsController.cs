@@ -37,7 +37,7 @@ namespace WebApplication1.Controllers
 
         // RESTORE - Restaurer un document supprimé
         [HttpPatch("{id}/restaurer")]
-        [Authorize]
+        [RequirePermission("restaurer")]
         public async Task<IActionResult> Restaurer(int id)
         {
             var document = await _context.Documents.FirstOrDefaultAsync(d => d.Id == id);
@@ -69,7 +69,7 @@ namespace WebApplication1.Controllers
 
         // LISTE DES CORBEILLE (docs supprimés)
         [HttpGet("corbeille")]
-        [Authorize]
+        [RequirePermission("voir_corbeille")]
         public async Task<IActionResult> GetCorbeille()
         {
             var docs = await _context.Documents

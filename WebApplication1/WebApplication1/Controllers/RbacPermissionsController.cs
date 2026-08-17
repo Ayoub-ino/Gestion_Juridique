@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using WebApplication1.Security;
 using WebApplication1.Services;
 
 namespace WebApplication1.Controllers
@@ -84,7 +85,7 @@ namespace WebApplication1.Controllers
         /// Update permissions for a service (admin only).
         /// </summary>
         [HttpPut("service/{serviceId}")]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_permissions")]
         public async Task<IActionResult> UpdateForService(int serviceId, [FromBody] UpdateServicePermissionsDto dto)
         {
             var service = await _context.RbacServices.FindAsync(serviceId);
@@ -106,7 +107,7 @@ namespace WebApplication1.Controllers
         /// Get all services with their permission summary.
         /// </summary>
         [HttpGet("matrix")]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_permissions")]
         public async Task<IActionResult> GetMatrix()
         {
             var services = await _context.RbacServices.OrderBy(s => s.Nom).ToListAsync();
@@ -170,7 +171,7 @@ namespace WebApplication1.Controllers
         /// PUT api/rbac/permissions/admin — update admin permission overrides.
         /// </summary>
         [HttpPut("admin")]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_permissions")]
         public async Task<IActionResult> UpdateAdminOverrides([FromBody] AdminPermissionUpdateRequest request)
         {
             if (request?.Permissions == null)

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -44,7 +45,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_listes")]
         public async Task<IActionResult> Create([FromBody] ListItem item)
         {
             if (item == null)
@@ -61,7 +62,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_listes")]
         public async Task<IActionResult> Update(int id, [FromBody] ListItem dto)
         {
             var item = await _context.ListItems.FindAsync(id);
@@ -79,7 +80,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_listes")]
         public async Task<IActionResult> Delete(int id)
         {
             var item = await _context.ListItems.FindAsync(id);

@@ -23,6 +23,11 @@ interface SidebarProps {
   isAdmin: boolean;
   canManageUsers: boolean;
   canSeeAdminSection: boolean;
+  canSeeServicesAdmin: boolean;
+  canSeePermissionsAdmin: boolean;
+  canSeeEquipementsAdmin: boolean;
+  canSeeHistoriquesAdmin: boolean;
+  canSeeListesAdmin: boolean;
   canOpenDossiers: boolean;
   canTransfer: boolean;
   canViewArchives: boolean;
@@ -46,6 +51,11 @@ export function Sidebar({
   isAdmin,
   canManageUsers,
   canSeeAdminSection,
+  canSeeServicesAdmin,
+  canSeePermissionsAdmin,
+  canSeeEquipementsAdmin,
+  canSeeHistoriquesAdmin,
+  canSeeListesAdmin,
   canViewArchives,
   canViewTransactions,
   canSearchDossiers,
@@ -157,25 +167,31 @@ export function Sidebar({
                 {cur.utilisateurs}
               </button>
             )}
-            <button onClick={() => setVueActive("admin-services")} className={navButtonClass(vueActive === "admin-services")}>
-              {cur.services}
-            </button>
-            {isAdmin && (
+            {canSeeServicesAdmin && (
+              <button onClick={() => setVueActive("admin-services")} className={navButtonClass(vueActive === "admin-services")}>
+                {cur.services}
+              </button>
+            )}
+            {canSeePermissionsAdmin && (
               <button onClick={() => setVueActive("admin-permissions")} className={navButtonClass(vueActive === "admin-permissions")}>
                 {cur.permissions}
               </button>
             )}
-            <button onClick={() => setVueActive("admin-equipements")} className={navButtonClass(vueActive === "admin-equipements")}>
-              {cur.equipements}
-            </button>
-            {isAdmin && (
+            {canSeeEquipementsAdmin && (
+              <button onClick={() => setVueActive("admin-equipements")} className={navButtonClass(vueActive === "admin-equipements")}>
+                {cur.equipements}
+              </button>
+            )}
+            {canSeeHistoriquesAdmin && (
               <button onClick={() => setVueActive("admin-services-historiques")} className={navButtonClass(vueActive === "admin-services-historiques")}>
                 {cur.servicesHistoriques}
               </button>
             )}
-            <button onClick={() => setVueActive("admin-listes")} className={navButtonClass(vueActive === "admin-listes")}>
-              {cur.listesDynamiques}
-            </button>
+            {canSeeListesAdmin && (
+              <button onClick={() => setVueActive("admin-listes")} className={navButtonClass(vueActive === "admin-listes")}>
+                {cur.listesDynamiques}
+              </button>
+            )}
           </div>
         )}
       </nav>

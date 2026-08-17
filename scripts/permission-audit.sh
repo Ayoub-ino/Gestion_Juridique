@@ -104,6 +104,42 @@ check "bureauordre retrait_archive DISABLED" yes "$(curl -s -o /dev/null -w '%{h
 check "fathmilafat ajouter_notes ENABLED" no   "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/Workspace/document/1/notes" -H "Authorization: Bearer $FATH" -H 'Content-Type: application/json' -d '{"contenu":"audit"}')"
 check "admin ajouter_notes OVERRIDE-DISABLED" yes "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/Workspace/document/1/notes" -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' -d '{"contenu":"audit"}')"
 
+# ---------- restaurer (PATCH /api/Documents/{id}/restaurer) ----------
+check "archive restaurer ENABLED" no   "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$BASE/api/Documents/1/restaurer" -H "Authorization: Bearer $ARCH" -H 'Content-Type: application/json' -d '{}')"
+check "bureauordre restaurer DISABLED" yes "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$BASE/api/Documents/1/restaurer" -H "Authorization: Bearer $BO" -H 'Content-Type: application/json' -d '{}')"
+check "admin restaurer OVERRIDE-DISABLED" yes "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$BASE/api/Documents/1/restaurer" -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' -d '{}')"
+
+# ---------- voir_corbeille (GET /api/Documents/corbeille) ----------
+check "archive voir_corbeille ENABLED" no   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/Documents/corbeille" -H "Authorization: Bearer $ARCH")"
+check "bureauordre voir_corbeille DISABLED" yes "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/Documents/corbeille" -H "Authorization: Bearer $BO")"
+# admin is an overseer: voir_corbeille (view) is NOT in the 20-key override list — only restaurer (action) is disabled
+check "admin voir_corbeille ENABLED (view perm, not overridden)" no   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/Documents/corbeille" -H "Authorization: Bearer $ADMIN")"
+
+# ---------- gerer_services (POST /api/Services) — admin-only, no override ----------
+check "admin gerer_services ENABLED" no   "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/Services" -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' -d '{}')"
+check "bureauordre gerer_services DISABLED" yes "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/Services" -H "Authorization: Bearer $BO" -H 'Content-Type: application/json' -d '{}')"
+
+# ---------- gerer_equipements (POST /api/Equipment) — admin-only, no override ----------
+check "admin gerer_equipements ENABLED" no   "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/Equipment" -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' -d '{}')"
+check "bureauordre gerer_equipements DISABLED" yes "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/Equipment" -H "Authorization: Bearer $BO" -H 'Content-Type: application/json' -d '{}')"
+
+# ---------- gerer_listes (POST /api/ListItems) — admin-only, no override ----------
+check "admin gerer_listes ENABLED" no   "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/ListItems" -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' -d '{}')"
+check "bureauordre gerer_listes DISABLED" yes "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/ListItems" -H "Authorization: Bearer $BO" -H 'Content-Type: application/json' -d '{}')"
+
+# ---------- gerer_permissions (GET /api/rbac/permissions/matrix) — admin-only, no override ----------
+# NOTE: must use the non-destructive GET; PUT /admin deletes ALL overrides (write check would corrupt the matrix)
+check "admin gerer_permissions ENABLED" no   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/rbac/permissions/matrix" -H "Authorization: Bearer $ADMIN")"
+check "bureauordre gerer_permissions DISABLED" yes "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/rbac/permissions/matrix" -H "Authorization: Bearer $BO")"
+
+# ---------- gerer_utilisateurs (GET /api/Users) + open /actifs for substitute picker ----------
+check "admin gerer_utilisateurs ENABLED" no   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/Users" -H "Authorization: Bearer $ADMIN")"
+check "bureauordre gerer_utilisateurs DISABLED" yes "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/Users" -H "Authorization: Bearer $BO")"
+check "bureauordre GET /api/Users/actifs OPEN (substitute picker)" no   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/Users/actifs" -H "Authorization: Bearer $BO")"
+
+# ---------- /api/auth/me (permission refresh endpoint) ----------
+check "any-user /api/auth/me ENABLED" no   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/auth/me" -H "Authorization: Bearer $BO")"
+
 # ---------- no token / invalid token ----------
 check "no-token blocked (401)" yes "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/Transfer" -H 'Content-Type: application/json' -d '{}')"
 check "garbage-token blocked (401)" yes "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/Transfer" -H "Authorization: Bearer garbage" -H 'Content-Type: application/json' -d '{}')"

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -38,7 +39,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_services")]
         public async Task<IActionResult> Create([FromBody] ServiceInfo service)
         {
             if (service == null)
@@ -50,7 +51,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_services")]
         public async Task<IActionResult> Update(int id, [FromBody] ServiceInfo dto)
         {
             var service = await _context.Services.FindAsync(id);
@@ -66,7 +67,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_services")]
         public async Task<IActionResult> Delete(int id)
         {
             var service = await _context.Services.FindAsync(id);

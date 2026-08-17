@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Langue } from "@/app/types";
 import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
+import { ExportButtons } from "@/app/components/common/ExportButtons";
 import { exportRows, ExportFormat } from "@/lib/exportImport";
 import { api } from "@/lib/api/client";
 
@@ -175,21 +176,7 @@ export function TransactionsPage({ langue, cur, token, onAccepted, isAdmin }: Pr
         <div className="p-4 border-b border-slate-200 flex justify-between items-center">
           <h3 className="font-bold text-slate-900 text-sm">{cur.registreTransactions}</h3>
           <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={() => 
-              exportTransactions("export excel")}
-              className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hover:bg-emerald-100 transition"
-            >
-              export excel
-            </button>
-            <button
-              type="button"
-              onClick={() => exportTransactions("export word")}
-              className="px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100 transition"
-            >
-              export word
-            </button>
+            <ExportButtons onExcel={() => exportTransactions("export excel")} onWord={() => exportTransactions("export word")} />
             <button
               type="button"
               onClick={fetchTransactions}

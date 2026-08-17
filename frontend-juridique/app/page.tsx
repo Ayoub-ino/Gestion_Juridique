@@ -193,8 +193,15 @@ export default function Home() {
   const role = user?.role || "";
   const isAdmin = role === "Admin" || role === "admin";
   const isGreffier = role === "Greffier" || role === "greffier";
-  const canManageUsers = isAdmin;
-  const canSeeAdminSection = isAdmin || isGreffier;
+  // Admin section is permission-driven: each management view requires its own
+  // gerer_* permission (admin keeps them all — they are not override-disabled).
+  const canManageUsers = isAdmin || hasPermission("gerer_utilisateurs");
+  const canSeeServicesAdmin = isAdmin || isGreffier || hasPermission("gerer_services");
+  const canSeePermissionsAdmin = isAdmin || hasPermission("gerer_permissions");
+  const canSeeEquipementsAdmin = isAdmin || isGreffier || hasPermission("gerer_equipements");
+  const canSeeHistoriquesAdmin = isAdmin || hasPermission("gerer_services");
+  const canSeeListesAdmin = isAdmin || isGreffier || hasPermission("gerer_listes");
+  const canSeeAdminSection = canManageUsers || canSeeServicesAdmin || canSeePermissionsAdmin || canSeeEquipementsAdmin || canSeeListesAdmin;
   const userService = user?.service || "";
 
   // Enhanced permission-based gates with admin override support
@@ -1168,6 +1175,11 @@ export default function Home() {
         isAdmin={isAdmin}
         canManageUsers={canManageUsers}
         canSeeAdminSection={canSeeAdminSection}
+        canSeeServicesAdmin={canSeeServicesAdmin}
+        canSeePermissionsAdmin={canSeePermissionsAdmin}
+        canSeeEquipementsAdmin={canSeeEquipementsAdmin}
+        canSeeHistoriquesAdmin={canSeeHistoriquesAdmin}
+        canSeeListesAdmin={canSeeListesAdmin}
         canOpenDossiers={canOpenDossiers}
         canTransfer={canTransfer}
         canViewArchives={canViewArchives}
@@ -1315,7 +1327,7 @@ export default function Home() {
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
               onRegisterRetrait={registerRetrait}
-              canSeeCorbeille={isAdmin || isGreffier}
+              canSeeCorbeille={hasPermission("voir_corbeille") || isGreffier}
               getServiceLabel={getServiceLabel}
             />
           )}
@@ -1513,23 +1525,23 @@ export default function Home() {
             <GestionUtilisateurs langue={langue} cur={cur} token={token} onExport={(f) => exportAdminData(f, "utilisateurs")} />
           )}
 
-          {vueActive === "admin-services" && canSeeAdminSection && (
+          {vueActive === "admin-services" && canSeeServicesAdmin && (
             <GestionServices langue={langue} cur={cur} token={token} onExport={(f) => exportAdminData(f, "services")} />
           )}
 
-          {vueActive === "admin-permissions" && isAdmin && (
+          {vueActive === "admin-permissions" && canSeePermissionsAdmin && (
             <GestionPermissions langue={langue} cur={cur} token={token} />
           )}
 
-          {vueActive === "admin-equipements" && canSeeAdminSection && (
+          {vueActive === "admin-equipements" && canSeeEquipementsAdmin && (
             <GestionEquipements langue={langue} cur={cur} token={token} onExport={(f) => exportAdminData(f, "equipements")} />
           )}
 
-          {vueActive === "admin-services-historiques" && isAdmin && (
+          {vueActive === "admin-services-historiques" && canSeeHistoriquesAdmin && (
             <GestionServicesHistoriques langue={langue} cur={cur} token={token} />
           )}
 
-          {vueActive === "admin-listes" && canSeeAdminSection && (
+          {vueActive === "admin-listes" && canSeeListesAdmin && (
             <GestionListes langue={langue} cur={cur} token={token} onExport={(f) => exportAdminData(f, "listes")} />
           )}
 

@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
@@ -23,6 +24,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("transferer_juridique")]
         public async Task<IActionResult> EnregistrerAction([FromBody] ActionJuridiqueDto dto)
         {
             try

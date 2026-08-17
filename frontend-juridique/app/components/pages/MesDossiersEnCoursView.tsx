@@ -4,6 +4,7 @@ import type { TranslationKeys } from "@/lib/translations";
 import { useState, useMemo } from "react";
 import { Langue, CourrierSimule } from "@/app/types";
 import { exportRows, ExportFormat } from "@/lib/exportImport";
+import { ExportButtons } from "@/app/components/common/ExportButtons";
 
 interface Props {
   langue: Langue;
@@ -188,14 +189,12 @@ export function MesDossiersEnCoursView({
           </div>
 
           <div className="flex flex-wrap gap-1.5">
-            <button type="button" onClick={() => exportDossiers("export excel")}
-              className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hover:bg-emerald-100">
-              {selectedIds.length > 0 ? `export excel (${selectedIds.length})` : "export excel"}
-            </button>
-            <button type="button" onClick={() => exportDossiers("export word")}
-              className="px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100">
-              {selectedIds.length > 0 ? `export word (${selectedIds.length})` : "export word"}
-            </button>
+            <ExportButtons
+              onExcel={() => exportDossiers("export excel")}
+              onWord={() => exportDossiers("export word")}
+              excelLabel={selectedIds.length > 0 ? `export excel (${selectedIds.length})` : "export excel"}
+              wordLabel={selectedIds.length > 0 ? `export word (${selectedIds.length})` : "export word"}
+            />
           </div>
         </div>
       </div>
