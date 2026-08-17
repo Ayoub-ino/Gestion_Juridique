@@ -11,6 +11,18 @@ namespace WebApplication1.Helpers
 
             return serviceName switch
             {
+                // --- RBAC service codes (seeded in RbacServices, stored in Utilisateur.Service) ---
+                "bureauordre" => ServiceTribunal.BureauOrdre,
+                "fathmilafat" => ServiceTribunal.OuvertureDossier,      // "Ouverture des dossiers judiciaires"
+                "secretarait" => ServiceTribunal.KitabaKhasa,           // Secrétariat
+                "seances&procedures" => ServiceTribunal.JalsatWaIjra2at, // Séances & Procédures = Service des audiences
+                "khibra" => ServiceTribunal.Khibra,                     // Expertise
+                "taslimnosakh" => ServiceTribunal.TaslimNusakh,         // Délivrance des copies
+                "tasfiatSawa2irTakmilia" => ServiceTribunal.TasfiyatSawa2ir, // Règlement des affaires complémentaires
+                "archive" => ServiceTribunal.Archive,
+                "atabligh" => ServiceTribunal.Tabligh,                  // Notification (التبليغ)
+
+                // --- Legacy French service names (pre-RBAC) ---
                 "Bureau d'ordre et bureau administratif" => ServiceTribunal.BureauOrdre,
                 "Bureau de Gestion des Dossiers Judiciaires" => ServiceTribunal.OuvertureDossier,
                 "KitabaKhasa" => ServiceTribunal.KitabaKhasa,

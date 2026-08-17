@@ -497,3 +497,29 @@
 | Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
 |---|---|---|---|---|
 | 2026-08-16 | CONFIGURED | `Helpers/ServiceMapper.cs` | **Constat** : les codes RBAC `fathmilafat`, `secretarait`, `seances&procedures`, `taslimnosakh`, `tasfiatSawa2irTakmilia`, `atabligh` ne sont mappés par `MapToServiceEnum` (retournent `BureauOrdre` par défaut). Seuls `bureauordre`, `archive`, `khibra` correspondent (TryParse insensible à la casse). Non modifié : changer le mapping modifierait la sémantique de possession (quelle entité chaque service « possède ») en milieu d'audit | Découvert pendant l'audit : les mouvements juridiques de `seances`/`taslimnosakh`/`atabligh` ciblent des enum inexistants dans leur service. À traiter avec le métier (mapping RBAC → ServiceTribunal) avant tout déploiement |
+
+---
+
+# Session N — 2026-08-16 : Mapping RBAC → ServiceTribunal + cause racine du bug « page morte » en dev (race d'hydratation)
+
+### Correctif fonctionnel : ServiceMapper RBAC
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-16 | MODIFIED | `Helpers/ServiceMapper.cs` | Ajout du mapping des codes RBAC seedés vers `ServiceTribunal` : `bureauordre`→BureauOrdre, `fathmilafat`→OuvertureDossier, `secretarait`→KitabaKhasa, `seances&procedures`→JalsatWaIjra2at, `khibra`→Khibra, `taslimnosakh`→TaslimNusakh, `tasfiatSawa2irTakmilia`→TasfiyatSawa2ir, `archive`→Archive, `atabligh`→Tabligh (mappings français legacy conservés) | Sans ce mapping, `fathmilafat`, `secretarait`, `seances&procedures`, `taslimnosakh`, `tasfiatSawa2irTakmilia`, `atabligh` retombaient sur `BureauOrdre` par défaut : les mouvements juridiques (MoveDossier), le filtrage des transactions et l'acceptation/refus ciblaient le mauvais service. Le mapping est confirmé par la matrice de permissions du seed (« Mouvements juridiques (étapes Jalsat) » pour seances&procedures, « Expertise (sous-service Jalsat) » pour khibra, « Taslim » pour taslimnosakh, « Tabligh » pour atabligh), les descriptions des services seedés, et le workflow métier BureauOrdre→OuvertureDossier→KitabaKhasa→JalsatWaIjra2at→TaslimNusakh→Archive |
+| 2026-08-16 | ADDED | `WebApplication1.Tests/ServiceMapperTests.cs` | 15 tests : mapping des 9 codes RBAC, parsing insensible à la casse des noms d'enum, mapping des noms français legacy, fallback `BureauOrdre` pour codes inconnus | Verrouiller le mapping pour éviter la régression silencieuse vers BureauOrdre |
+
+### Cause racine identifiée et corrigée : « page morte » en mode dev (race d'hydratation)
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-16 | MODIFIED | `cypress/support/commands.ts` | Nouvelle commande `cy.waitForHydration()` : attend que le fiber React soit attaché au DOM avant toute interaction ; utilisée dans la commande `login` | **Cause racine** : en `next dev`, les scripts sont chargés en `async` → l'hydratation React peut se terminer APRÈS que la page soit visible et que Cypress commence à taper. L'hydratation réinitialise les champs contrôlés à l'état React (vide) → le champ login se retrouve vide → la validation native `required` bloque SILENCIEUSEMENT la soumission (pas de requête, pas d'erreur, formulaire inchangé). La session N a écarté bfcache, les erreurs console, les 404 de chunks et le serveur (réponses ~90 ms) avant d'isoler la race |
+| 2026-08-16 | MODIFIED | `cypress/e2e/app.cy.ts` | `beforeEach` : `cy.waitForHydration()` après `cy.visit("/")` | Même race pour tous les tests qui se connectent — le wait rend les tests déterministes en dev |
+| 2026-08-16 | CONFIGURED | E2E | `npx cypress run` contre **`next dev`** (Turbopack) → **35/35, 3 fois de suite, ~56 s** (avant : 12 échecs flaky, > 5 min) | Le fix rend `npm run dev` + Cypress utilisables ensemble ; la recommandation « lancer les E2E contre le build de production » de la Session M n'est plus nécessaire (toujours possible) |
+
+### Vérifications (Session N)
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-16 | CONFIGURED | Backend | `dotnet build` → 0 erreur ; `dotnet test` → **44/44** (29 + 15 nouveaux ServiceMapperTests) | Validation du mapping |
+| 2026-08-16 | CONFIGURED | Frontend | `npx tsc --noEmit` → 0 erreur ; `npx eslint cypress/` → 0 erreur (1 warning bénin `no-unused-expressions` Cypress standard) | Validation des changements Cypress |

@@ -3,6 +3,10 @@
 describe("Application E2E Tests", () => {
   beforeEach(() => {
     cy.visit("/");
+    // In dev mode, async script loading can make hydration finish after
+    // the page is visible — typing before hydration gets wiped by the
+    // hydration reset (see support/commands.ts). Wait for React first.
+    cy.waitForHydration();
   });
 
   describe("1. Login Page", () => {
