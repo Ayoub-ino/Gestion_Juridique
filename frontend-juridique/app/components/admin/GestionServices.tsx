@@ -4,6 +4,7 @@ import type { TranslationKeys } from "@/lib/translations";
 import { useState, useEffect, useCallback } from "react";
 import { Langue, RbacService } from "@/app/types";
 import { ExportFormat } from "@/lib/exportImport";
+import { ExportButtons } from "@/app/components/common/ExportButtons";
 import { api } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/utils";
 
@@ -126,16 +127,7 @@ export function GestionServices({ langue, cur, token, onExport }: Props) {
               {filtered.length} / 8 {langue === "fr" ? "services" : "مصلحة"}
             </span>
             {onExport && (
-              <div className="flex gap-1">
-                <button type="button" onClick={() => onExport("export excel")}
-                  className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hover:bg-emerald-100">
-                  export excel
-                </button>
-                <button type="button" onClick={() => onExport("export word")}
-                  className="px-2 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100">
-                  export word
-                </button>
-              </div>
+              <ExportButtons onExcel={() => onExport("export excel")} onWord={() => onExport("export word")} />
             )}
           </div>
         </div>

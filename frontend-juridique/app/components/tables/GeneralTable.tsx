@@ -5,6 +5,8 @@ import { useRef } from "react";
 import { CourrierSimule } from "@/app/types";
 import { ExportFormat } from "@/lib/exportImport";
 import { getWorkflowProgress, getDelayDays } from "@/lib/constants";
+import { ExportButtons } from "@/app/components/common/ExportButtons";
+import { useAuth } from "@/context/AuthContext";
 
 interface GeneralTableProps {
   documents: CourrierSimule[];
@@ -35,6 +37,8 @@ export function GeneralTable({
   onToggleSelect,
   onSelectAll,
 }: GeneralTableProps) {
+  const { hasPermission } = useAuth();
+  const canImport = hasPermission("creer_courrier_admin") || hasPermission("creer_courrier_juridique");
   const allSelected = documents.length > 0 && documents.every((d) => selectedIds.includes(d.id));
   const someSelected = selectedIds.length > 0 && !allSelected;
   const importExcelRef = useRef<HTMLInputElement>(null);
@@ -50,12 +54,9 @@ export function GeneralTable({
             {documents.length} {cur.documents}
           </span>
           {onExport && (
-            <div className="flex gap-1">
-              <button type="button" onClick={() => onExport("export excel")} className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hover:bg-emerald-100">export excel</button>
-              <button type="button" onClick={() => onExport("export word")} className="px-2 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100">export word</button>
-            </div>
+            <ExportButtons onExcel={() => onExport("export excel")} onWord={() => onExport("export word")} />
           )}
-          {onImportExcel && (
+          {onImportExcel && canImport && (
             <label className="px-2 py-1 rounded bg-violet-600 text-white text-[10px] font-bold border border-violet-700 hover:bg-violet-700 cursor-pointer">
               📥 {cur.importExcel}
               <input ref={importExcelRef} type="file" accept=".xlsx,.xls" onChange={(e) => { const f = e.target.files?.[0]; if (f && onImportExcel) onImportExcel(f); e.target.value = ""; }} className="hidden" />

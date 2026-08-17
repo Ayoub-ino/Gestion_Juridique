@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Langue } from "@/app/types";
 import { useAuth } from "@/context/AuthContext";
 import { SERVICE_GROUPS, getRoleLabel } from "@/lib/constants";
+import { ExportButtons } from "@/app/components/common/ExportButtons";
 import { ExportFormat } from "@/lib/exportImport";
 import { api } from "@/lib/api/client";
 
@@ -123,22 +124,7 @@ export function NotificationsPage({ langue, cur, token, onExport }: Props) {
         </h3>
         <div className="flex items-center gap-2">
           {onExport && (
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => onExport("export excel")}
-                className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hover:bg-emerald-100"
-              >
-                  export excel
-              </button>
-              <button
-                type="button"
-                onClick={() => onExport("export word")}
-                className="px-2 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100"
-              >
-                  export word
-              </button>
-            </div>
+            <ExportButtons onExcel={() => onExport("export excel")} onWord={() => onExport("export word")} />
           )}
           <div className="flex gap-2">
           {selectedIds.length > 0 && (

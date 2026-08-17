@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using WebApplication1.Services;
 
 namespace WebApplication1.Controllers
 {
@@ -12,10 +14,12 @@ namespace WebApplication1.Controllers
     public class ExcelImportController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly PermissionService _permissionService;
 
-        public ExcelImportController(AppDbContext context)
+        public ExcelImportController(AppDbContext context, PermissionService permissionService)
         {
             _context = context;
+            _permissionService = permissionService;
         }
 
         // DTO for the import request
@@ -36,9 +40,18 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<ExcelImportResponse>> Import([FromBody] ExcelImportRequest request)
         {
+            // Bulk import creates documents — require the same permission as
+            // creating that document type directly (permission-driven, not role-driven).
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var requiredKey = request.DocType == "juridique" ? "creer_courrier_juridique" : "creer_courrier_admin";
+            if (!await _permissionService.HasPermissionAsync(userId, requiredKey))
+                return StatusCode(403, new { error = "Permission non accordée" });
+
             if (request.Rows == null || request.Rows.Count == 0)
             {
                 return BadRequest(new ExcelImportResponse

@@ -21,6 +21,8 @@ type AuthContextType = {
   isAuthenticated: boolean;
   hasPermission: (key: string) => boolean;
   permissions: string[];
+  /** Re-fetches the user + permissions from the DB (GET /api/auth/me). */
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -113,10 +115,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user?.role, token, fetchAdminOverrides]);
 
+  // Re-fetch the user + permissions from the DB so permission changes made in
+  // the admin panel (by another admin) reflect in the UI without re-login.
+  const refreshUser = useCallback(async () => {
+    if (!token) return;
+    try {
+      const data = await api.get<{ user: User }>("/api/auth/me", token);
+      setUser(data.user);
+      if (data.user.role === "Admin") {
+        await fetchAdminOverrides();
+      }
+    } catch {
+      // Ignore transient failures — the next focus/refresh will retry.
+    }
+  }, [token, fetchAdminOverrides]);
+
+  // Refresh when the window regains focus, throttled to once a minute.
+  const lastRefreshRef = React.useRef(0);
+  useEffect(() => {
+    if (!token) return;
+    const onFocus = () => {
+      const now = Date.now();
+      if (now - lastRefreshRef.current > 60_000) {
+        lastRefreshRef.current = now;
+        refreshUser();
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [token, refreshUser]);
+
   const isAuthenticated = !!token && !!user;
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated, hasPermission, permissions }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated, hasPermission, permissions, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

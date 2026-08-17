@@ -4,12 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using WebApplication1.Security;
 
 namespace WebApplication1.Controllers
 {
     [ApiController]
     [Route("api/historical-services")]
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     public class HistoricalServicesController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -20,6 +21,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("gerer_services")]
         public async Task<IActionResult> GetAll()
         {
             var services = await _context.HistoricalServices
@@ -45,6 +47,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission("gerer_services")]
         public async Task<IActionResult> GetById(int id)
         {
             var service = await _context.HistoricalServices.FindAsync(id);
@@ -64,6 +67,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("gerer_services")]
         public async Task<IActionResult> Create([FromBody] CreateHistoricalServiceDto dto)
         {
             if (dto == null)
@@ -90,6 +94,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("gerer_services")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateHistoricalServiceDto dto)
         {
             var service = await _context.HistoricalServices.FindAsync(id);
@@ -110,6 +115,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("gerer_services")]
         public async Task<IActionResult> Delete(int id)
         {
             var service = await _context.HistoricalServices.FindAsync(id);

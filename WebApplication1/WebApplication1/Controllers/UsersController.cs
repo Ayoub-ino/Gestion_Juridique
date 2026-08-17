@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using WebApplication1.Security;
 using WebApplication1.Services;
 
 namespace WebApplication1.Controllers
@@ -26,7 +27,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_utilisateurs")]
         public async Task<IActionResult> GetAll([FromQuery] bool includeInactive = false)
         {
             var query = _context.Utilisateurs
@@ -76,8 +77,21 @@ namespace WebApplication1.Controllers
             return Ok(users);
         }
 
+        // Lightweight active-user list used by non-admin pages (e.g. the
+        // substitute picker on the profile page).
+        [HttpGet("actifs")]
+        [Authorize]
+        public async Task<IActionResult> GetActive()
+        {
+            var users = await _context.Utilisateurs
+                .Where(u => u.IsActive)
+                .Select(u => new { u.Id, u.Nom, u.Service })
+                .ToListAsync();
+            return Ok(users);
+        }
+
         [HttpGet("{id}")]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_utilisateurs")]
         public async Task<IActionResult> GetById(int id)
         {
             var user = await _context.Utilisateurs
@@ -101,7 +115,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_utilisateurs")]
         public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
         {
             if (dto == null)
@@ -128,7 +142,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_utilisateurs")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
         {
             if (dto == null)
@@ -151,7 +165,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_utilisateurs")]
         public async Task<IActionResult> Delete(int id)
         {
             var user = await _context.Utilisateurs.FindAsync(id);
@@ -169,7 +183,7 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPost("{id}/restore")]
-        [Authorize(Roles = "Admin")]
+        [RequirePermission("gerer_utilisateurs")]
         public async Task<IActionResult> Restore(int id)
         {
             var user = await _context.Utilisateurs.FindAsync(id);

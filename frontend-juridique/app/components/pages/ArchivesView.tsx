@@ -4,6 +4,8 @@ import type { TranslationKeys } from "@/lib/translations";
 import { CourrierSimule, Langue } from "@/app/types";
 import { exportRows } from "@/lib/exportImport";
 import { normalizeStatus } from "@/lib/utils";
+import { ExportButtons } from "@/app/components/common/ExportButtons";
+import { useAuth } from "@/context/AuthContext";
 
 interface Props {
   langue: Langue;
@@ -38,6 +40,7 @@ export function ArchivesView({
   canSeeCorbeille,
   getServiceLabel,
 }: Props) {
+  const { hasPermission } = useAuth();
   return (
     <div className="space-y-5">
       <div className="flex gap-2">
@@ -80,9 +83,8 @@ export function ArchivesView({
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full max-w-md p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50"
               />
-              <button
-                type="button"
-                onClick={() => {
+              <ExportButtons
+                onExcel={() => {
                   const rows = filteredGeneral.slice(0, 5).map((doc, index) => ({
                     reference: doc.reference,
                     objet: doc.objet,
@@ -91,13 +93,7 @@ export function ArchivesView({
                   }));
                   exportRows(rows, "archives", "export excel", cur.archivesJuridiques);
                 }}
-                className="ms-3 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold"
-              >
-                export excel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
+                onWord={() => {
                   const rows = filteredGeneral.slice(0, 5).map((doc) => ({
                     reference: doc.reference,
                     objet: doc.objet,
@@ -106,10 +102,9 @@ export function ArchivesView({
                   }));
                   exportRows(rows, "archives", "export word", cur.archivesJuridiques);
                 }}
-                className="ms-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold"
-              >
-                export word
-              </button>
+                excelLabel="export excel"
+                wordLabel="export word"
+              />
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -176,13 +171,15 @@ export function ArchivesView({
                       <td className="p-3 font-bold">{doc.objet}</td>
                       <td className="p-3">{getServiceLabel(doc.serviceActuel, langue)}</td>
                       <td className="p-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => onRestoreDocument(doc.id)}
-                          className="px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold"
-                        >
-                          {cur.restaurer}
-                        </button>
+                        {hasPermission("restaurer") && (
+                          <button
+                            type="button"
+                            onClick={() => onRestoreDocument(doc.id)}
+                            className="px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold"
+                          >
+                            {cur.restaurer}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))

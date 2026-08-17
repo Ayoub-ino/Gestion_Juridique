@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel.DataAnnotations;
@@ -76,6 +77,38 @@ namespace WebApplication1.Controllers
             return Ok(new
             {
                 token = tokenString,
+                user = new
+                {
+                    user.Id,
+                    user.Login,
+                    user.Nom,
+                    user.Role,
+                    user.Service,
+                    user.ServiceId,
+                    permissions
+                }
+            });
+        }
+
+        // GET api/auth/me — fresh user + permissions straight from the DB.
+        // Used by the frontend to reflect permission changes made in the admin
+        // panel without forcing a full re-login.
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> Me()
+        {
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var user = await _context.Utilisateurs.FindAsync(userId);
+            if (user == null || !user.IsActive)
+                return Unauthorized(new { message = "Compte introuvable ou désactivé" });
+
+            var permissions = await _permissionService.GetUserPermissionsAsync(user.Id);
+
+            return Ok(new
+            {
                 user = new
                 {
                     user.Id,

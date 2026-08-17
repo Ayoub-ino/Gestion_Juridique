@@ -523,3 +523,39 @@
 |---|---|---|---|---|
 | 2026-08-16 | CONFIGURED | Backend | `dotnet build` → 0 erreur ; `dotnet test` → **44/44** (29 + 15 nouveaux ServiceMapperTests) | Validation du mapping |
 | 2026-08-16 | CONFIGURED | Frontend | `npx tsc --noEmit` → 0 erreur ; `npx eslint cypress/` → 0 erreur (1 warning bénin `no-unused-expressions` Cypress standard) | Validation des changements Cypress |
+
+---
+
+## 🛡️ Session O — Audit & réécriture du système de permissions (2026-08-17)
+
+### Cause racine
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-17 | MODIFIED | `Controllers/UsersController.cs` | `GET /api/Users` passé de `[Authorize]` (tout le monde) à `[RequirePermission("gerer_utilisateurs")]` ; ajout de `GET /api/Users/actifs` (libre, utilisateurs actifs uniquement) ; les endpoints de gestion (POST/PUT/DELETE/restore) restent sur `gerer_utilisateurs` | `GET /api/Users` exposait la liste complète à tout utilisateur authentifié ; `ProfilPage` (sélecteur de substituts) appelait l'endpoint admin → 403 pour les non-admins = sélecteur cassé. Le nouvel endpoint `/actifs` répond au besoin de ProfilPage sans exposer la gestion |
+| 2026-08-17 | MODIFIED | `Controllers/DocumentsController.cs` | `PATCH {id}/restaurer` → `[RequirePermission("restaurer")]`, `GET corbeille` → `[RequirePermission("voir_corbeille")]` | Ces endpoints n'étaient protégés que par `[Authorize]` : n'importe quel utilisateur connecté pouvait restaurer des documents ou lire la corbeille |
+| 2026-08-17 | MODIFIED | `Controllers/ActionsJuridiquesController.cs` | Endpoints d'actions juridiques → `[RequirePermission("transferer_juridique")]` | Étaient librement accessibles à tout utilisateur authentifié |
+| 2026-08-17 | MODIFIED | `Controllers/ServicesController.cs`, `RbacServicesController.cs`, `HistoricalServicesController.cs`, `EquipmentController.cs`, `ListItemsController.cs`, `RbacPermissionsController.cs` | `[Authorize(Roles = "Admin")]` remplacé par `[RequirePermission("gerer_services"/"gerer_equipements"/"gerer_listes"/"gerer_permissions")]` | Le rôle statique Admin est contournable/imprécis : la permission dynamique suit la table `ServicePermissions`/`AdminPermissionOverrides` en direct ; les non-admin avec la permission `gerer_*` peuvent aussi gérer |
+| 2026-08-17 | MODIFIED | `Controllers/ExcelImportController.cs` | Gate `[Authorize(Roles = "Admin")]` → permission `creer_courrier_admin`/`creer_courrier_juridique` selon le type de document | L'import Excel est utilisé par les utilisateurs métier (bureau d'ordre) — le gate Admin le bloquait ; le gate par type de document respecte la matrice |
+| 2026-08-17 | ADDED | `Controllers/AuthController.cs` | Nouvel endpoint `GET /api/auth/me` : renvoie l'utilisateur courant + permissions fraîches depuis la DB | Base du rafraîchissement temps réel des permissions côté UI (au focus / re-login) |
+| 2026-08-17 | MODIFIED | `context/AuthContext.tsx` | Ajout de `refreshUser()` (re-fetch `/api/auth/me` + overrides admin) et d'un écouteur `window focus` throttlé à 1 min | Les changements de permissions faits dans le panneau admin se reflètent dans l'UI sans re-login |
+
+### Frontend — gating UI dynamique
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-17 | ADDED | `app/components/common/ExportButtons.tsx` | Composant partagé : rend chaque bouton export (Excel/Word) seulement si la permission `export_excel`/`export_word` est active ; masque tout si aucune | Centralise le gating des exports (précédemment dupliqué/codé en dur dans ~11 fichiers) et masque le bouton quand la permission est désactivée |
+| 2026-08-17 | MODIFIED | `GeneralTable.tsx`, `SortantTable.tsx`, `MesEntitesView.tsx`, `MesDossiersEnCoursView.tsx`, `ArchivesView.tsx`, `RechercheDossiersView.tsx`, `NotificationsPage.tsx`, `TransactionsPage.tsx`, `GestionUtilisateurs.tsx`, `GestionServices.tsx`, `GestionEquipements.tsx`, `GestionListes.tsx` | Boutons export remplacés par `ExportButtons` gated par permission | Permission désactivée → bouton masqué (pas seulement 403 au clic) |
+| 2026-08-17 | MODIFIED | `app/components/tables/GeneralTable.tsx`, `app/components/pages/MesEntitesView.tsx` | Bouton « importer » gated par `creer_courrier_admin`/`creer_courrier_juridique` | Masquer l'import quand l'utilisateur ne peut pas créer ce type de document |
+| 2026-08-17 | MODIFIED | `app/page.tsx` | Section admin rendue selon `gerer_utilisateurs`/`gerer_services`/`gerer_permissions`/`gerer_equipements`/`gerer_listes` ; actions workflow gated (`ouvrir_dossier`, `transferer`, `archiver`, `supprimer`, `retrait_archive`, `voir_corbeille`) | Le menu admin était piloté par le rôle Admin uniquement ; désormais chaque vue suit sa permission. Les boutons d'action s'affichent selon la permission au lieu d'alerter systématiquement |
+| 2026-08-17 | MODIFIED | `app/components/layout/Sidebar.tsx` | Reçoit les props de permission par vue ; n'affiche que les entrées autorisées | Navigation masquée quand la permission est désactivée |
+| 2026-08-17 | MODIFIED | `app/components/pages/ProfilPage.tsx` | Utilise `GET /api/Users/actifs` au lieu de `GET /api/Users` | Sélecteur de substituts fonctionnel pour les non-admins (403 avant) |
+
+### Vérifications (Session O)
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-17 | CONFIGURED | Backend | `dotnet build` → 0 erreur/0 warning ; `dotnet test` → **44/44** | Validation |
+| 2026-08-17 | CONFIGURED | Frontend | `npx tsc --noEmit` → 0 erreur ; `npx eslint app/` → 0 erreur (20 warnings bénins préexistants) | Validation |
+| 2026-08-17 | CONFIGURED | E2E | `npx cypress run` (build prod) → **35/35** | Validation UI |
+| 2026-08-17 | CONFIGURED | Audit RBAC | `scripts/permission-audit.sh` étendu : +15 vérifications (restaurer, voir_corbeille, gerer_services, gerer_equipements, gerer_listes, gerer_permissions, gerer_utilisateurs, /Users/actifs, /api/auth/me) → **46/46** ; correctif : le check `gerer_permissions` utilise GET `/matrix` (non destructif) car PUT `/admin` avec `{}` supprime TOUS les overrides | Vérification positive/négative systématique : permission active → accès OK ; désactivée → 403 ; admin → 403 sur les 20 clés overridées, garde les permissions de vue |

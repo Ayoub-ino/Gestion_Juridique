@@ -3,6 +3,8 @@
 import type { TranslationKeys } from "@/lib/translations";
 import { CourrierSimule, Langue, VueActive } from "@/app/types";
 import { ExportFormat } from "@/lib/exportImport";
+import { ExportButtons } from "@/app/components/common/ExportButtons";
+import { useAuth } from "@/context/AuthContext";
 
 interface Props {
   langue: Langue;
@@ -53,6 +55,8 @@ export function MesEntitesView({
   onImportExcel,
   getServiceLabel,
 }: Props) {
+  const { hasPermission } = useAuth();
+  const canImport = hasPermission("creer_courrier_admin") || hasPermission("creer_courrier_juridique");
   return (
     <div className="space-y-5">
       <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-4">
@@ -79,27 +83,23 @@ export function MesEntitesView({
             {cur.docsRetourner} ({docsArchives})
           </button>
           <div className="flex flex-wrap gap-1.5">
-            <button type="button" onClick={() => {
-              if (selectedDocIds.length > 0) onExportSelected("export excel");
-              else onExportGeneral("export excel");
-            }} className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hover:bg-emerald-100">
-              {selectedDocIds.length > 0 ? `export excel (${selectedDocIds.length})` : "export excel"}
-            </button>
-            <button type="button" onClick={() => {
-              if (selectedDocIds.length > 0) onExportSelected("export word");
-              else onExportGeneral("export word");
-            }} className="px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100">
-              {selectedDocIds.length > 0 ? `export word (${selectedDocIds.length})` : "export word"}
-            </button>
+            <ExportButtons
+              onExcel={() => selectedDocIds.length > 0 ? onExportSelected("export excel") : onExportGeneral("export excel")}
+              onWord={() => selectedDocIds.length > 0 ? onExportSelected("export word") : onExportGeneral("export word")}
+              excelLabel={selectedDocIds.length > 0 ? `export excel (${selectedDocIds.length})` : "export excel"}
+              wordLabel={selectedDocIds.length > 0 ? `export word (${selectedDocIds.length})` : "export word"}
+            />
             <button
               type="button"
               onClick={onDownloadTemplate}
               className="px-3 py-1.5 rounded-lg bg-teal-50 text-teal-700 text-[10px] font-bold border border-teal-200 hover:bg-teal-100 cursor-pointer flex items-center gap-1"
             >                        📋 {cur.chargerModele}
             </button>
-            <label className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[10px] font-bold border border-violet-700 hover:bg-violet-700 cursor-pointer flex items-center gap-1">                        📥 {cur.importExcel}
-              <input type="file" accept=".xlsx,.xls" onChange={onImportExcel} className="hidden" />
-            </label>
+            {canImport && (
+              <label className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[10px] font-bold border border-violet-700 hover:bg-violet-700 cursor-pointer flex items-center gap-1">                        📥 {cur.importExcel}
+                <input type="file" accept=".xlsx,.xls" onChange={onImportExcel} className="hidden" />
+              </label>
+            )}
           </div>
         </div>
       </div>

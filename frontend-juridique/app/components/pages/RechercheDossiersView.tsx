@@ -4,6 +4,7 @@ import type { TranslationKeys } from "@/lib/translations";
 import { CourrierSimule, Langue } from "@/app/types";
 import { normalizeStatus } from "@/lib/utils";
 import { exportRows } from "@/lib/exportImport";
+import { ExportButtons } from "@/app/components/common/ExportButtons";
 
 interface Props {
   langue: Langue;
@@ -155,24 +156,22 @@ export function RechercheDossiersView({
             <h3 className="font-bold text-xs text-slate-800">
               {cur.resultatsPour(searchTerm)} ({searchResults.length})
             </h3>
-            <div className="flex gap-1.5">
-              <button type="button" onClick={() => exportRows(searchResults.map(d => ({
+            <ExportButtons
+              onExcel={() => exportRows(searchResults.map(d => ({
                 [cur.tblRef]: d.reference,
                 [cur.tblTitre]: d.objet,
                 [cur.tblSource]: d.source,
                 [cur.serviceActuel]: d.serviceActuel,
                 [cur.statutAction]: d.statut,
               })), "recherche", "export excel", cur.rechercheDossiers)}
-                className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">export excel</button>
-              <button type="button" onClick={() => exportRows(searchResults.map(d => ({
+              onWord={() => exportRows(searchResults.map(d => ({
                 [cur.tblRef]: d.reference,
                 [cur.tblTitre]: d.objet,
                 [cur.tblSource]: d.source,
                 [cur.serviceActuel]: d.serviceActuel,
                 [cur.statutAction]: d.statut,
               })), "recherche", "export word", cur.rechercheDossiers)}
-                className="px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200">export word</button>
-            </div>
+            />
           </div>
           {searchResults.length === 0 ? (
             <div className="p-12 text-center">

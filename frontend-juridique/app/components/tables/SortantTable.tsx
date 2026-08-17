@@ -5,6 +5,7 @@ import { CourrierSimule } from "@/app/types";
 import { normalizeStatus } from "@/lib/utils";
 import { ExportFormat } from "@/lib/exportImport";
 import { getWorkflowProgress, getDelayDays } from "@/lib/constants";
+import { ExportButtons } from "@/app/components/common/ExportButtons";
 
 interface SortantTableProps {
   documents: CourrierSimule[];
@@ -53,12 +54,7 @@ export function SortantTable({
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-500">{documents.length} {cur.documents}</span>
           {onExport && (
-            <div className="flex gap-1">
-              <button type="button" onClick={() => 
-              onExport("export excel")} className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border 
-border-emerald-200 hover:bg-emerald-100">export excel</button>
-              <button type="button" onClick={() => onExport("export word")} className="px-2 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100">export word</button>
-            </div>
+            <ExportButtons onExcel={() => onExport("export excel")} onWord={() => onExport("export word")} />
           )}
         </div>
       </div>
