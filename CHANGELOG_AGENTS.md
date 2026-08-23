@@ -586,3 +586,21 @@
 | 2026-08-23 | CONFIGURED | Frontend | `npx tsc --noEmit` → 0 erreur | Validation |
 | 2026-08-23 | CONFIGURED | E2E | `npx cypress run` (build prod) → **38/38** (35 existants + 3 nouveaux permission-toggle) | Validation complète |
 | 2026-08-23 | CONFIGURED | Audit RBAC | `scripts/permission-audit.sh` → **46/46** après correctif archiver | Toutes les vérifications passent |
+
+---
+
+## 🧪 Session Q — Permission-toggle E2E coverage expansion (2026-08-23)
+
+### Tests E2E — Permission Toggle Lifecycle (12 tests, 12 pass)
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | MODIFIED | `cypress/e2e/permission-toggle.cy.ts` | 12 tests : (1) export_excel, (2) supprimer, (3) archiver, (4) transferer, (5) creer_courrier_admin, (6) accepter, (7) refuser, (8) transferer_juridique, (9) retrait_archive, (10) recherche_avancee — tous en disable→verify→re-enable via snapshot/restore. (11) Admin override cycle : disable gerer_services pour admin → 403, re-enable → accès. (12) UI export buttons. Fix du mismatch de champ GET→PUT (`key` vs `permissionKey`). Fix des assertions de re-enable pour les endpoints à contrôle de possession (accepter, refuser) via `/api/auth/me` | Couvrir le cycle complet enable/disable/enable pour TOUTES les permissions protégées par `[RequirePermission]` au niveau service ET admin override |
+| 2026-08-23 | MODIFIED | `cypress/e2e/permission-toggle.cy.ts` | `saveAdminOverrides` : mapping `key` → `permissionKey` dans le payload PUT. Le GET `/api/rbac/permissions/admin` retourne `{key,...}` mais le PUT attend `{permissionKey,...}` — sans ce mapping, le PUT rejetait toutes les permissions et ne stockait aucune override | Bug de compatibilité API : le GET et le PUT utilisent des noms de champs différents pour la même donnée |
+
+### Vérifications (Session Q)
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | CONFIGURED | E2E | `npx cypress run` → **47/47** (35 app.cy + 12 permission-toggle) — 2 passes consécutives | Stabilité |
+| 2026-08-23 | CONFIGURED | Audit RBAC | `permission-audit.sh` → **46/46** | Conformité matrice |
