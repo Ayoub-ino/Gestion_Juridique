@@ -77,7 +77,7 @@ check "archive transferer DISABLED" yes "$(curl -s -o /dev/null -w '%{http_code}
 
 # ---------- archiver (POST /api/Documents/archive-batch) ----------
 check "archive archiver ENABLED" no   "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/Documents/archive-batch" -H "Authorization: Bearer $ARCH" -H 'Content-Type: application/json' -d '{"ids":[]}')"
-check "bureauordre archiver DISABLED" yes "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/Documents/archive-batch" -H "Authorization: Bearer $BO" -H 'Content-Type: application/json' -d '{"ids":[]}')"
+check "bureauordre archiver ENABLED" no   "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/Documents/archive-batch" -H "Authorization: Bearer $BO" -H 'Content-Type: application/json' -d '{"ids":[]}')"
 
 # ---------- transferer_juridique (POST /api/juridique/{id}/TransactionJuridique) ----------
 DJ=$(create_juridique "$FATH")

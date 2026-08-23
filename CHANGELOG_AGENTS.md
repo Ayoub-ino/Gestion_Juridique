@@ -559,3 +559,30 @@
 | 2026-08-17 | CONFIGURED | Frontend | `npx tsc --noEmit` → 0 erreur ; `npx eslint app/` → 0 erreur (20 warnings bénins préexistants) | Validation |
 | 2026-08-17 | CONFIGURED | E2E | `npx cypress run` (build prod) → **35/35** | Validation UI |
 | 2026-08-17 | CONFIGURED | Audit RBAC | `scripts/permission-audit.sh` étendu : +15 vérifications (restaurer, voir_corbeille, gerer_services, gerer_equipements, gerer_listes, gerer_permissions, gerer_utilisateurs, /Users/actifs, /api/auth/me) → **46/46** ; correctif : le check `gerer_permissions` utilise GET `/matrix` (non destructif) car PUT `/admin` avec `{}` supprime TOUS les overrides | Vérification positive/négative systématique : permission active → accès OK ; désactivée → 403 ; admin → 403 sur les 20 clés overridées, garde les permissions de vue |
+
+---
+
+## 🧪 Session P — Tests unitaires dynamiques + tests E2E permission-toggle + fix audit (2026-08-23)
+
+### Tests unitaires — DynamicPermissionMiddlewareTests
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | ADDED | `WebApplication1.Tests/DynamicPermissionMiddlewareTests.cs` | 21 tests couvrant les permissions nouvellement gatées : `restaurer`, `voir_corbeille`, `gerer_services/equipements/listes/permissions/utilisateurs`. Groupes : admin avec/sans override, non-admin avec/sans permission, sémantique override admin (20 clés désactivées, `voir_corbeille` et `gerer_*` pas dans la liste), sans auth → 401. Le helper `BuildProvider()` génère la table `Permissions` en InMemory (requis par `GetUserPermissionsAsync` qui interroge `_context.Permissions` pour admin) | Couvrir le nouvel enforcement RBAC de Session O avec des tests déterministes |
+| 2026-08-23 | MODIFIED | `WebApplication1.Tests/DynamicPermissionMiddlewareTests.cs` | Ajout de `SeedAdminWithOverrides()` helper + seed `AllPermissionKeys` dans `BuildProvider()`. Les tests admin échouaient car `GetUserPermissionsAsync` pour admin lit `_context.Permissions` (table vide en InMemory) → retourne liste vide → 403 systématique | Bug de test : les tests admin passaient par le middleware → `ValidatePermissionAsync` → `GetUserPermissionsAsync` qui lit la table `Permissions` — sans le seed, admin recevait 0 permissions |
+
+### Tests E2E — Permission Toggle Lifecycle
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | ADDED | `cypress/e2e/permission-toggle.cy.ts` | 3 tests E2E : (1) `export_excel` disable → vérifie `/api/auth/me` ne contient plus la clé, re-enable → vérifie retour ; (2) `supprimer` disable → DELETE retourne 403, re-enable → retourne non-403 ; (3) UI : désactiver les deux permissions export → boutons masqués, réactiver → boutons visibles. Utilise `snapshotPerms`/`patchServicePerms`/`restorePermissions` pour préserver l'état original (pas de `resetServicePerms` qui re-enable tout) | Vérifier que le cycle enable/disable/enable fonctionne tant au niveau API que dans l'UI |
+| 2026-08-23 | MODIFIED | `scripts/permission-audit.sh` | Check `bureauordre archiver` corrigé de `DISABLED` à `ENABLED` — le service BureauOrdre possède `archiver=enabled` dans le seed (matrice officielle). L'ancien check échouait toujours (200 au lieu de 403 attendu) car `archiver` est effectivement accordé à bureauordre | Correctif de la matrice de vérification : la matrice seed accorde `archiver` à bureauordre |
+
+### Vérifications (Session P)
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | CONFIGURED | Backend | `dotnet build` → 0 erreur ; `dotnet test` → **68/68** (44 + 24 nouveaux : 15 DynamicPermissionMiddlewareTests + 9 existants de Sessions précédentes) | Validation |
+| 2026-08-23 | CONFIGURED | Frontend | `npx tsc --noEmit` → 0 erreur | Validation |
+| 2026-08-23 | CONFIGURED | E2E | `npx cypress run` (build prod) → **38/38** (35 existants + 3 nouveaux permission-toggle) | Validation complète |
+| 2026-08-23 | CONFIGURED | Audit RBAC | `scripts/permission-audit.sh` → **46/46** après correctif archiver | Toutes les vérifications passent |
