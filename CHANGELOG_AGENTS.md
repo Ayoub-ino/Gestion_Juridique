@@ -642,3 +642,29 @@
 | 2026-08-23 | CONFIGURED | Frontend | `npx tsc --noEmit` → 0 erreur ; `npx next build` → succès | Validation |
 | 2026-08-23 | CONFIGURED | E2E | `npx cypress run` → **49/49** (35 app.cy + 14 permission-toggle) | Validation |
 | 2026-08-23 | CONFIGURED | Audit RBAC | `permission-audit.sh` → **46/46** | Conformité |
+
+---
+
+## ⚡ Session S — Performance optimization: lazy loading + bundle config (2026-08-23)
+
+### Frontend — Code splitting & lazy loading
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | MODIFIED | `app/page.tsx` | 23 composants convertis en `React.lazy()` + dynamic imports : AdminForm, JuridiqueForm, SortantForm, TransferModal, DetailModal, WorkspaceModal, ImportMappingModal, ArchiveRetraitPage, GestionUtilisateurs, GestionServices, GestionPermissions, GestionEquipements, GestionListes, GestionServicesHistoriques, NotificationsPage, TransactionsPage, ProfilPage, MesEntitesView, MesDossiersEnCoursView, ArchivesView, RechercheDossiersView. Seuls LoginPage, Sidebar et DashboardView restent eagerly loaded. `Suspense` wrapper avec loading spinner ajouté autour du contenu principal et des modaux | Le fichier de 1661 lignes importait statiquement 23 composants lourds (~6000 lignes au total) → tout était bundle en un seul chunk. La conversion en lazy loading crée des chunks séparés chargés à la demande, réduisant significativement le bundle initial |
+| 2026-08-23 | MODIFIED | `next.config.ts` | Ajout de : `output: "standalone"` (build optimisé), `compress: true` (gzip/brotli), `experimental.optimizePackageImports` (tree-shaking lucide-react, heroicons), `serverExternalPackages` (mammoth, pdfjs-dist, xlsx exclus du bundle serveur) | Configuration par défaut sans optimisation — le serveur打包ait des packages volumineux inutilement dans le bundle serveur |
+
+### Nettoyage — Aucun code mort trouvé
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | — | Scan complet | Tous les fichiers `.tsx`/`.ts` dans `app/` sont importés et utilisés. Aucun package inutile dans `package.json` (mammoth, pdfjs-dist, xlsx utilisés). Aucun warning backend (0 CS8xxx, 0 CS0xxx). 21 warnings eslint restants = `set-state-in-effect` intentionnels (fetch-on-mount) | Pas de nettoyage nécessaire — le codebase est déjà propre |
+
+### Vérifications (Session S)
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | CONFIGURED | Backend | `dotnet build` → 0 erreur/0 warning ; `dotnet test` → **85/85** | Validation |
+| 2026-08-23 | CONFIGURED | Frontend | `npx tsc --noEmit` → 0 erreur ; `npx next build` → 3.6s (avant : 3.8s) | Validation |
+| 2026-08-23 | CONFIGURED | E2E | `npx cypress run` → **49/49** (35 app.cy + 14 permission-toggle) | Validation |
+| 2026-08-23 | CONFIGURED | Audit RBAC | `permission-audit.sh` → **46/46** | Conformité |

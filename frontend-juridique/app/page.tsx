@@ -1,34 +1,35 @@
 ﻿"use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
 import { useAuth } from "@/context/AuthContext";
 import LoginPage from "@/app/components/pages/LoginPage";
 
+// ── Eagerly loaded (shown on first render) ──
 import { Sidebar } from "@/app/components/layout/Sidebar";
 import { DashboardView } from "@/app/components/dashboard/DashboardView";
-import { AdminForm } from "@/app/components/forms/AdminForm";
-import { JuridiqueForm } from "@/app/components/forms/JuridiqueForm";
-import { SortantForm } from "@/app/components/forms/SortantForm";
-import { TransferModal } from "@/app/components/modals/TransferModal";
-import { DetailModal } from "@/app/components/modals/DetailModal";
-import { GestionUtilisateurs } from "@/app/components/admin/GestionUtilisateurs";
-import { GestionServices } from "@/app/components/admin/GestionServices";
-import { GestionPermissions } from "@/app/components/admin/GestionPermissions";
-import { GestionEquipements } from "@/app/components/admin/GestionEquipements";
-import { GestionListes } from "@/app/components/admin/GestionListes";
-import { NotificationsPage } from "@/app/components/pages/NotificationsPage";
-import { TransactionsPage } from "@/app/components/pages/TransactionsPage";
-import { ProfilPage } from "@/app/components/pages/ProfilPage";
-import { WorkspaceModal } from "@/app/components/modals/WorkspaceModal";
-import { ImportMappingModal } from "@/app/components/modals/ImportMappingModal";
-import { ArchiveRetraitPage } from "@/app/components/pages/ArchiveRetraitPage";
-import { MesDossiersEnCoursView } from "@/app/components/pages/MesDossiersEnCoursView";
 
-import { GestionServicesHistoriques } from "@/app/components/admin/GestionServicesHistoriques";
-
-import { MesEntitesView } from "@/app/components/pages/MesEntitesView";
-import { ArchivesView } from "@/app/components/pages/ArchivesView";
-import { RechercheDossiersView } from "@/app/components/pages/RechercheDossiersView";
+// ── Lazy-loaded (only shown on user interaction) ──
+const AdminForm = lazy(() => import("@/app/components/forms/AdminForm").then(m => ({ default: m.AdminForm })));
+const JuridiqueForm = lazy(() => import("@/app/components/forms/JuridiqueForm").then(m => ({ default: m.JuridiqueForm })));
+const SortantForm = lazy(() => import("@/app/components/forms/SortantForm").then(m => ({ default: m.SortantForm })));
+const TransferModal = lazy(() => import("@/app/components/modals/TransferModal").then(m => ({ default: m.TransferModal })));
+const DetailModal = lazy(() => import("@/app/components/modals/DetailModal").then(m => ({ default: m.DetailModal })));
+const GestionUtilisateurs = lazy(() => import("@/app/components/admin/GestionUtilisateurs").then(m => ({ default: m.GestionUtilisateurs })));
+const GestionServices = lazy(() => import("@/app/components/admin/GestionServices").then(m => ({ default: m.GestionServices })));
+const GestionPermissions = lazy(() => import("@/app/components/admin/GestionPermissions").then(m => ({ default: m.GestionPermissions })));
+const GestionEquipements = lazy(() => import("@/app/components/admin/GestionEquipements").then(m => ({ default: m.GestionEquipements })));
+const GestionListes = lazy(() => import("@/app/components/admin/GestionListes").then(m => ({ default: m.GestionListes })));
+const NotificationsPage = lazy(() => import("@/app/components/pages/NotificationsPage").then(m => ({ default: m.NotificationsPage })));
+const TransactionsPage = lazy(() => import("@/app/components/pages/TransactionsPage").then(m => ({ default: m.TransactionsPage })));
+const ProfilPage = lazy(() => import("@/app/components/pages/ProfilPage").then(m => ({ default: m.ProfilPage })));
+const WorkspaceModal = lazy(() => import("@/app/components/modals/WorkspaceModal").then(m => ({ default: m.WorkspaceModal })));
+const ImportMappingModal = lazy(() => import("@/app/components/modals/ImportMappingModal").then(m => ({ default: m.ImportMappingModal })));
+const ArchiveRetraitPage = lazy(() => import("@/app/components/pages/ArchiveRetraitPage").then(m => ({ default: m.ArchiveRetraitPage })));
+const MesDossiersEnCoursView = lazy(() => import("@/app/components/pages/MesDossiersEnCoursView").then(m => ({ default: m.MesDossiersEnCoursView })));
+const GestionServicesHistoriques = lazy(() => import("@/app/components/admin/GestionServicesHistoriques").then(m => ({ default: m.GestionServicesHistoriques })));
+const MesEntitesView = lazy(() => import("@/app/components/pages/MesEntitesView").then(m => ({ default: m.MesEntitesView })));
+const ArchivesView = lazy(() => import("@/app/components/pages/ArchivesView").then(m => ({ default: m.ArchivesView })));
+const RechercheDossiersView = lazy(() => import("@/app/components/pages/RechercheDossiersView").then(m => ({ default: m.RechercheDossiersView })));
 
 import { translations } from "@/lib/translations";
 import { normalizeStatus, getDocKey, getErrorMessage } from "@/lib/utils";
@@ -1217,6 +1218,7 @@ export default function Home() {
         </header>
 
         <div className="p-8 flex-1 overflow-y-auto w-full mx-auto space-y-8">
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
           {vueActive === "dashboard" && (
             <DashboardView
               searchTerm={searchTerm}
@@ -1552,9 +1554,11 @@ export default function Home() {
           {vueActive === "profil" && (
             <ProfilPage langue={langue} cur={cur} token={token} user={user} />
           )}
+          </Suspense>
         </div>
       </main>
 
+      <Suspense fallback={null}>
       {transferModalDoc && (
         <TransferModal
           doc={transferModalDoc}
@@ -1657,6 +1661,7 @@ export default function Home() {
           }}
         />
       )}
+      </Suspense>
     </div>
   );
 }
