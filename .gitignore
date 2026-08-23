@@ -22,8 +22,14 @@ tmp/
 .vscode/
 *.suo
 
-# Deepwork progress files
-.slim/deepwork/
+# AI/tooling artifacts
+.ignore
+PROMPT_SESSION.md
+CHANGELOG_AGENTS.md
+frontend-juridique/AGENTS.md
+frontend-juridique/CLAUDE.md
+.slim/
+docs/architecture-audit.md
 
 # OS
 Thumbs.db

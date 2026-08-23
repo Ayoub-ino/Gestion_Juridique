@@ -1,3 +1,0 @@
-# OpenCode ignore — keeps .gitignore'd paths readable to OpenCode tools
-!.slim/deepwork/
-!.slim/deepwork/**
