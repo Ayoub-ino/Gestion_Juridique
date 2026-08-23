@@ -433,6 +433,10 @@ namespace WebApplication1.Tests
         [InlineData("gerer_listes")]
         [InlineData("gerer_permissions")]
         [InlineData("gerer_utilisateurs")]
+        [InlineData("etape_precedente")]
+        [InlineData("etape_suivante")]
+        [InlineData("ouvrir_dossier")]
+        [InlineData("cloturer")]
         public async Task NoAuth_AnyNewPermission_Returns401(string permission)
         {
             var (provider, _) = BuildProvider();
@@ -443,6 +447,85 @@ namespace WebApplication1.Tests
 
             Assert.False(flag.Called);
             Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
+        }
+
+        // ===========================================================
+        //  Group 10: Workflow step permissions (frontend-gated only,
+        //  no backend [RequirePermission] yet, but middleware handles
+        //  them correctly if enforcement is added)
+        // ===========================================================
+
+        [Theory]
+        [InlineData("etape_precedente")]
+        [InlineData("etape_suivante")]
+        [InlineData("ouvrir_dossier")]
+        [InlineData("cloturer")]
+        public async Task WorkflowStep_AdminWithoutOverride_Allowed(string permission)
+        {
+            var (provider, ctx) = BuildProvider();
+            SeedAdminWithOverrides(ctx);
+
+            var context = HttpContextWithEndpoint(provider, permission, 1);
+            var (middleware, flag) = CreateMiddleware();
+
+            await middleware.InvokeAsync(context);
+
+            Assert.True(flag.Called);
+            Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("etape_precedente", "seances&procedures")]
+        [InlineData("etape_suivante", "seances&procedures")]
+        [InlineData("ouvrir_dossier", "fathmilafat")]
+        [InlineData("cloturer", "archive")]
+        public async Task WorkflowStep_UserWithPermission_PassesThrough(string permission, string serviceCode)
+        {
+            var (provider, ctx) = BuildProvider();
+            SeedServiceUser(ctx, serviceCode, permission);
+
+            var context = HttpContextWithEndpoint(provider, permission, 1);
+            var (middleware, flag) = CreateMiddleware();
+
+            await middleware.InvokeAsync(context);
+
+            Assert.True(flag.Called);
+            Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("etape_precedente", "secretarait")]
+        [InlineData("etape_suivante", "secretarait")]
+        [InlineData("ouvrir_dossier", "secretarait")]
+        [InlineData("cloturer", "secretarait")]
+        public async Task WorkflowStep_UserWithoutPermission_Returns403(string permission, string serviceCode)
+        {
+            var (provider, ctx) = BuildProvider();
+            SeedServiceUser(ctx, serviceCode, permission, false);
+
+            var context = HttpContextWithEndpoint(provider, permission, 1);
+            var (middleware, flag) = CreateMiddleware();
+
+            await middleware.InvokeAsync(context);
+
+            Assert.False(flag.Called);
+            Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
+        }
+
+        // Admin with etape_* in override list → 403
+        [Fact]
+        public async Task AdminEtapeSuivante_OverrideDisabled_Returns403()
+        {
+            var (provider, ctx) = BuildProvider();
+            SeedAdminWithOverrides(ctx, new[] { "etape_suivante" });
+
+            var context = HttpContextWithEndpoint(provider, "etape_suivante", 1);
+            var (middleware, flag) = CreateMiddleware();
+
+            await middleware.InvokeAsync(context);
+
+            Assert.False(flag.Called);
+            Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
         }
     }
 }

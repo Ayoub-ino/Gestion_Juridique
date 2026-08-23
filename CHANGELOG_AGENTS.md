@@ -604,3 +604,41 @@
 |---|---|---|---|---|
 | 2026-08-23 | CONFIGURED | E2E | `npx cypress run` → **47/47** (35 app.cy + 12 permission-toggle) — 2 passes consécutives | Stabilité |
 | 2026-08-23 | CONFIGURED | Audit RBAC | `permission-audit.sh` → **46/46** | Conformité matrice |
+
+---
+
+## 🛠️ Session R — API field alignment + ownership tests + workflow unit tests (2026-08-23)
+
+### Backend — API alignment
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | MODIFIED | `Controllers/RbacPermissionsController.cs` | GET `/api/rbac/permissions/admin` : `p.Key` → `PermissionKey = p.Key` dans la réponse anonyme | Le GET retournait `{key,...}` mais le PUT attend `{permissionKey,...}` — le round-trip GET→PUT supprimait silencieusement toutes les overrides admin |
+
+### Frontend — alignement type
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | MODIFIED | `admin/GestionPermissions.tsx` | Interface `AdminPerm.key` → `permissionKey` ; tous les usages `p.key` → `p.permissionKey` pour les permissions admin | Alignement avec le nouveau champ `permissionKey` du GET |
+
+### Tests E2E — ownership layer + workflow
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | MODIFIED | `cypress/e2e/permission-toggle.cy.ts` | 2 nouveaux tests ownership : (1) cross-service accepter → bureauordre a `accepter` mais la tx est pour archive → 403 ; (2) cross-service refuser → même pattern. Les deux créent leur propre courrier+transfert pour des données déterministes | Vérifier la couche de contrôle de possession (au-delà de la permission middleware) |
+| 2026-08-23 | MODIFIED | `cypress/e2e/permission-toggle.cy.ts` | `saveAdminOverrides` : mapping supprimé (round-trip direct car GET retourne maintenant `permissionKey`). Fix du template literal non terminé (`refuser\"` → `refuser"`) | Bug de syntaxe + simplification après l'alignement GET/PUT |
+
+### Tests unitaires — workflow step permissions
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | MODIFIED | `DynamicPermissionMiddlewareTests.cs` | +17 tests (total 85) : Group 10 — `etape_precedente`, `etape_suivante`, `ouvrir_dossier`, `cloturer`. Test admin sans override → autorisé, user avec permission → autorisé, user sans permission → 403, admin avec override → 403, sans auth → 401 ( Theory) | Ces permissions existent dans le seed et sont gatées côté UI mais sans enforcement backend `[RequirePermission]` — les tests valident que le middleware les gère correctement si/quant l'ajout sera fait |
+
+### Vérifications (Session R)
+
+| Date & Heure | Action Type | Fichier / Composant | Résumé des changements | Raison du changement |
+|---|---|---|---|---|
+| 2026-08-23 | CONFIGURED | Backend | `dotnet build` → 0 erreur ; `dotnet test` → **85/85** | Validation |
+| 2026-08-23 | CONFIGURED | Frontend | `npx tsc --noEmit` → 0 erreur ; `npx next build` → succès | Validation |
+| 2026-08-23 | CONFIGURED | E2E | `npx cypress run` → **49/49** (35 app.cy + 14 permission-toggle) | Validation |
+| 2026-08-23 | CONFIGURED | Audit RBAC | `permission-audit.sh` → **46/46** | Conformité |

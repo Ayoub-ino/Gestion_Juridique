@@ -19,7 +19,7 @@ interface MatrixData {
 }
 
 interface AdminPerm {
-  key: string;
+  permissionKey: string;
   labelFr: string;
   labelAr: string;
   category: string;
@@ -100,9 +100,9 @@ export function GestionPermissions({ langue, cur, token }: Props) {
     );
   };
 
-  const toggleAdminPermission = (key: string) => {
+  const toggleAdminPermission = (permissionKey: string) => {
     setAdminEditPerms(prev =>
-      prev.map(p => p.key === key ? { ...p, enabled: !p.enabled } : p)
+      prev.map(p => p.key === permissionKey ? { ...p, enabled: !p.enabled } : p)
     );
   };
 
@@ -155,7 +155,7 @@ export function GestionPermissions({ langue, cur, token }: Props) {
   const handleEditAdmin = () => {
     setAdminEditPerms(
       adminPermissions.map(p => ({
-        key: p.key,
+        key: p.permissionKey,
         labelFr: p.labelFr,
         labelAr: p.labelAr,
         category: p.category,
@@ -224,7 +224,7 @@ export function GestionPermissions({ langue, cur, token }: Props) {
       id: -1,
       nom: langue === "fr" ? "Admin" : "مدير",
       code: "admin",
-      permissions: new Set(adminPermissions.filter(p => p.enabled).map(p => p.key)),
+      permissions: new Set(adminPermissions.filter(p => p.enabled).map(p => p.permissionKey)),
       isAdmin: true,
     },
   ] : [];

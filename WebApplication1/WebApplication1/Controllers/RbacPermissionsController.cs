@@ -157,12 +157,12 @@ namespace WebApplication1.Controllers
             // For admin: all permissions are allowed by default, overrides can disable them
             var result = allPermissions.Select(p => new
             {
-                p.Key,
+                PermissionKey = p.Key,
                 p.LabelFr,
                 p.LabelAr,
                 p.Category,
                 Enabled = overrideDict.TryGetValue(p.Key, out var enabled) ? enabled : true
-            }).OrderBy(p => p.Category).ThenBy(p => p.Key);
+            }).OrderBy(p => p.Category).ThenBy(p => p.PermissionKey);
 
             return Ok(new { permissions = result });
         }

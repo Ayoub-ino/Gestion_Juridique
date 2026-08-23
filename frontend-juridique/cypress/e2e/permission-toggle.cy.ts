@@ -97,27 +97,22 @@ describe("9. Permission Toggle Lifecycle", () => {
     });
   };
 
-  /** Get current admin overrides (returns array of { key, enabled }) */
+  /** Get current admin overrides (returns array of { permissionKey, enabled }) */
   const getAdminOverrides = (adminToken: string) =>
     authed(adminToken, "GET", `${API_URL}/api/rbac/permissions/admin`).then(
-      (res) => res.body.permissions as { key: string; enabled: boolean }[],
+      (res) => res.body.permissions as { permissionKey: string; enabled: boolean }[],
     );
 
-  /** Save admin overrides from a snapshot (maps key→permissionKey for the PUT DTO) */
+  /** Save admin overrides from a snapshot (now that GET returns permissionKey, round-trip is direct) */
   const saveAdminOverrides = (
     adminToken: string,
-    snapshot: { key: string; enabled: boolean }[],
-  ) => {
-    const payload = snapshot.map((p) => ({
-      permissionKey: p.key,
-      enabled: p.enabled,
-    }));
-    return authed(adminToken, "PUT", `${API_URL}/api/rbac/permissions/admin`, {
-      permissions: payload,
+    snapshot: { permissionKey: string; enabled: boolean }[],
+  ) =>
+    authed(adminToken, "PUT", `${API_URL}/api/rbac/permissions/admin`, {
+      permissions: snapshot,
     }).then((r) => {
       expect(r.status).to.eq(200);
     });
-  };
 
   // ─────────────────────────────────────────────────
   //  Service-level permission toggle tests
@@ -483,7 +478,7 @@ describe("9. Permission Toggle Lifecycle", () => {
 
   it("admin override: enable gerer_services for admin → access, disable → 403", () => {
     let adminToken: string;
-    let adminSnapshot: { key: string; enabled: boolean }[];
+    let adminSnapshot: { permissionKey: string; enabled: boolean }[];
 
     login("admin", "admin123")
       .then((t) => {
@@ -494,14 +489,14 @@ describe("9. Permission Toggle Lifecycle", () => {
         adminSnapshot = overrides;
 
         // Verify admin currently CAN access gerer_services (not overridden)
-        const disabled = overrides.find((o) => o.key === "gerer_services" && !o.enabled);
+        const disabled = overrides.find((o) => o.permissionKey === "gerer_services" && !o.enabled);
         // gerer_services should NOT be in the disabled overrides (admin keeps it)
         expect(disabled, "gerer_services should not be disabled for admin").to.be.undefined;
       })
       .then(() => {
         // Now add gerer_services to admin overrides (disable it)
         const updated = [
-          ...adminSnapshot.map((p) => ({ permissionKey: p.key, enabled: p.enabled })),
+          ...adminSnapshot,
           { permissionKey: "gerer_services", enabled: false },
         ];
         return authed(adminToken, "PUT", `${API_URL}/api/rbac/permissions/admin`, {
@@ -522,6 +517,94 @@ describe("9. Permission Toggle Lifecycle", () => {
         // Verify admin can access again
         return authed(adminToken, "POST", `${API_URL}/api/Services`, {}).then((r) => {
           expect(r.status).to.not.eq(403);
+        });
+      });
+  });
+
+  // ─────────────────────────────────────────────────
+  //  Ownership layer: permission + wrong service → 403
+  // ─────────────────────────────────────────────────
+
+  it("ownership: cross-service accepter → 403 even with permission enabled", () => {
+    let adminToken: string;
+
+    login("admin", "admin123")
+      .then((t) => { adminToken = t; })
+      // Create a courrier as bureauordre, then transfer to archive
+      .then(() => login("bureauordre", "bureauordre123"))
+      .then((boToken) => {
+        authed(boToken, "POST", `${API_URL}/api/CourrierAdmin`, {
+          NumeroOrdre: `OWNERSHIP-TEST-${Date.now()}`,
+          Expediteur: "Test",
+          Objet: "Ownership test",
+        }).then((res) => {
+          expect(res.status).to.eq(201);
+          const docId = res.body.courrier?.id ?? res.body.id;
+          // Transfer to archive service
+          authed(boToken, "POST", `${API_URL}/api/Transfer`, {
+            documentId: docId,
+            documentType: "entrant-admin",
+            serviceDestination: "Archive",
+          }).then((txRes) => {
+            const txId = txRes.body.transactionIds?.[0];
+            expect(txId, "transaction should be created").to.exist;
+
+            // Archive user (destination) should be able to accept
+            login("archive", "archive123").then((archiveToken) => {
+              authed(archiveToken, "PUT", `${API_URL}/api/Transactions/${txId}/accepter`, {
+                commentaire: "accepted",
+              }).then((r) => {
+                expect(r.status).to.eq(200);
+              });
+            });
+          });
+        });
+      })
+      // Now test that a non-owner WITH accepter permission gets 403
+      .then(() => login("bureauordre", "bureauordre123"))
+      .then((boToken) => {
+        // bureauordre has accepter permission but is not the destination service
+        authed(boToken, "GET", `${API_URL}/api/auth/me`).then((me) => {
+          expect(me.body.user.permissions).to.include("accepter");
+        });
+        // Try to accept a transaction destined for archive
+        authed(boToken, "PUT", `${API_URL}/api/Transactions/1/accepter`, {
+          commentaire: "should fail",
+        }).then((r) => {
+          expect(r.status).to.eq(403);
+        });
+      });
+  });
+
+  it("ownership: cross-service refuser → 403 even with permission enabled", () => {
+    login("admin", "admin123")
+      .then(() => login("bureauordre", "bureauordre123"))
+      .then((boToken) => {
+        // bureauordre has refuser permission
+        authed(boToken, "GET", `${API_URL}/api/auth/me`).then((me) => {
+          expect(me.body.user.permissions).to.include("refuser");
+        });
+        // Create + transfer to archive, then try to refuser as bureauordre (non-owner)
+        authed(boToken, "POST", `${API_URL}/api/CourrierAdmin`, {
+          NumeroOrdre: `REFUS-TEST-${Date.now()}`,
+          Expediteur: "Test",
+          Objet: "Refuser ownership test",
+        }).then((res) => {
+          const docId = res.body.courrier?.id ?? res.body.id;
+          authed(boToken, "POST", `${API_URL}/api/Transfer`, {
+            documentId: docId,
+            documentType: "entrant-admin",
+            serviceDestination: "Archive",
+          }).then((txRes) => {
+            const txId = txRes.body.transactionIds?.[0];
+            expect(txId, "transaction should be created").to.exist;
+            // bureauordre has refuser but is NOT the destination → 403
+            authed(boToken, "PUT", `${API_URL}/api/Transactions/${txId}/refuser`, {
+              commentaire: "should fail",
+            }).then((r) => {
+              expect(r.status).to.eq(403);
+            });
+          });
         });
       });
   });
