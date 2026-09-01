@@ -73,8 +73,8 @@ describe("Application E2E Tests", () => {
     it("should navigate to different views via sidebar", () => {
       // Click on different sidebar items and verify view changes
       cy.get("aside").within(() => {
-        // Try clicking "Mes entités" / "Documents" (Arabic: وثائقي وملفاتي)
-        cy.contains(/Mes entités|وثائقي وملفاتي/).click();
+        // Try clicking "Mes entités" / "Mes documents" (Arabic: ملفاتي)
+        cy.contains(/Mes entités|ملفاتي/).click();
       });
       cy.url().should("include", "/");
     });
@@ -173,7 +173,7 @@ describe("Application E2E Tests", () => {
     });
 
     it("should display all interface in Arabic", () => {
-      cy.contains("محكمة الاستئناف الإدارية").should("be.visible");
+      cy.contains("محكمة الاستئناف").should("be.visible");
       cy.contains("لوحة التحكم").should("be.visible");
     });
 
@@ -199,7 +199,7 @@ describe("Application E2E Tests", () => {
 
     it("should show admin document form", () => {
       cy.get("aside").within(() => {
-        cy.contains(/Courrier Administratif|وارد إداري/).click();
+        cy.contains(/Courrier Administratif|مراسلات إدارية واردة/).click();
       });
       cy.wait(300);
       // Check form is visible
@@ -217,7 +217,7 @@ describe("Application E2E Tests", () => {
       cy.get('button[type="submit"]').click();
       cy.wait(500);
       cy.get("aside").within(() => {
-        cy.contains(/Dossier Juridique|وارد قضائي/).click();
+        cy.contains(/Dossier Juridique|ملف قضائي وارد/).click();
       });
       cy.wait(300);
       cy.get("form").should("exist");
@@ -225,7 +225,7 @@ describe("Application E2E Tests", () => {
 
     it("should show outgoing mail form", () => {
       cy.get("aside").within(() => {
-        cy.contains(/Courrier Sortant Normal|صادر عادي/).click();
+        cy.contains(/Courrier Sortant Normal|مراسلات صادرة عادية/).click();
       });
       cy.wait(300);
       cy.get("form").should("exist");

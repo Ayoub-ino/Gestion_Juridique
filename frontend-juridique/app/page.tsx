@@ -30,6 +30,7 @@ const GestionServicesHistoriques = lazy(() => import("@/app/components/admin/Ges
 const MesEntitesView = lazy(() => import("@/app/components/pages/MesEntitesView").then(m => ({ default: m.MesEntitesView })));
 const ArchivesView = lazy(() => import("@/app/components/pages/ArchivesView").then(m => ({ default: m.ArchivesView })));
 const RechercheDossiersView = lazy(() => import("@/app/components/pages/RechercheDossiersView").then(m => ({ default: m.RechercheDossiersView })));
+const SortantTable = lazy(() => import("@/app/components/tables/SortantTable").then(m => ({ default: m.SortantTable })));
 
 import { translations } from "@/lib/translations";
 import { normalizeStatus, getDocKey, getErrorMessage } from "@/lib/utils";
@@ -271,6 +272,9 @@ export default function Home() {
     }
     return matchSearch && matchStatut;
   });
+
+  const filteredSortantNormal = filteredSortant.filter((doc) => doc.type === "sortant-normal");
+  const filteredSortantDemande = filteredSortant.filter((doc) => doc.type === "sortant-demande");
 
   const totalDocs = visibleCourriers.length || 1;
   const mapToGroup = (s: string): string => {
@@ -1521,6 +1525,26 @@ export default function Home() {
                 </div>
               </form>
             </div>
+          )}
+
+          {(vueActive === "sortant-normal" || vueActive === "sortant-demande") && (
+            <Suspense fallback={<div className="flex items-center justify-center py-10"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div></div>}>
+              <SortantTable
+                documents={vueActive === "sortant-normal" ? filteredSortantNormal : filteredSortantDemande}
+                filtreStatut={filtreStatutSortant}
+                setFiltreStatut={setFiltreStatutSortant}
+                onView={(doc) => { setSelectedDocument(doc); setShowModal(true); }}
+                onTransfer={openTransfer}
+                onDelete={handleDelete}
+                canDelete={canDelete}
+                onMarquerEnvoye={(id) => changerStatutSortant(id, "Envoye")}
+                onMarquerAttente={(id) => changerStatutSortant(id, "EnAttente")}
+                onAnnuler={(id) => changerStatutSortant(id, "Annule")}
+                cur={cur}
+                langue={langue}
+                onExport={vueActive === "sortant-normal" ? exportSortantDocs : exportSortantDocs}
+              />
+            </Suspense>
           )}
 
           {vueActive === "admin-utilisateurs" && canManageUsers && (

@@ -643,7 +643,7 @@ describe("9. Permission Toggle Lifecycle", () => {
         cy.get("aside", { timeout: 10000 }).should("exist");
 
         cy.get("aside").within(() => {
-          cy.contains(/Mes entités|وثائقي|وملفاتي/).click();
+          cy.contains(/Mes entités|ملفاتي/).click();
         });
         cy.wait(1000);
 
@@ -663,7 +663,7 @@ describe("9. Permission Toggle Lifecycle", () => {
         cy.get("aside", { timeout: 10000 }).should("exist");
 
         cy.get("aside").within(() => {
-          cy.contains(/Mes entités|وثائقي|وملفاتي/).click();
+          cy.contains(/Mes entités|ملفاتي/).click();
         });
         cy.wait(1000);
 
