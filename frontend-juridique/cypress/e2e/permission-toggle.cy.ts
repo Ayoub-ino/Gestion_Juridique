@@ -771,4 +771,258 @@ describe("9. Permission Toggle Lifecycle", () => {
         });
       });
   });
+
+  // ─────────────────────────────────────────────────
+  //  Service soft-delete (archive / restore / permanent delete)
+  // ─────────────────────────────────────────────────
+
+  it("service soft-delete: archive → hidden from active list → appears in archived → restore → back", () => {
+    let adminToken: string;
+    let createdServiceId: number;
+
+    login("admin", "admin123")
+      .then((t) => {
+        adminToken = t;
+        // Create a temporary service to archive
+        return authed(t, "POST", `${API_URL}/api/rbac/services`, {
+          nom: `Test Archive Service ${Date.now()}`,
+          code: `test-archive-${Date.now()}`,
+          description: "Temporary test service for archive E2E",
+        });
+      })
+      .then((res) => {
+        expect(res.status).to.eq(200);
+        createdServiceId = res.body.id;
+
+        // Verify it appears in the active list
+        return authed(adminToken, "GET", `${API_URL}/api/rbac/services`).then((r) => {
+          const ids = (r.body as { id: number }[]).map((s) => s.id);
+          expect(ids).to.include(createdServiceId);
+        });
+      })
+      // Soft-delete (archive)
+      .then(() => {
+        return authed(adminToken, "DELETE", `${API_URL}/api/rbac/services/${createdServiceId}`).then((r) => {
+          expect(r.status).to.eq(200);
+        });
+      })
+      // Verify it's hidden from the active list
+      .then(() => {
+        return authed(adminToken, "GET", `${API_URL}/api/rbac/services`).then((r) => {
+          const ids = (r.body as { id: number }[]).map((s) => s.id);
+          expect(ids).to.not.include(createdServiceId);
+        });
+      })
+      // Verify it appears in the archived list
+      .then(() => {
+        return authed(adminToken, "GET", `${API_URL}/api/rbac/services?includeInactive=true`).then((r) => {
+          const svc = (r.body as { id: number; isActive: boolean }[]).find((s) => s.id === createdServiceId);
+          expect(svc, "archived service should appear with includeInactive").to.exist;
+          expect(svc!.isActive).to.eq(false);
+        });
+      })
+      // Restore the service
+      .then(() => {
+        return authed(adminToken, "POST", `${API_URL}/api/rbac/services/${createdServiceId}/restore`).then((r) => {
+          expect(r.status).to.eq(200);
+        });
+      })
+      // Verify it's back in the active list
+      .then(() => {
+        return authed(adminToken, "GET", `${API_URL}/api/rbac/services`).then((r) => {
+          const ids = (r.body as { id: number }[]).map((s) => s.id);
+          expect(ids).to.include(createdServiceId);
+        });
+      })
+      // Clean up: permanent delete
+      .then(() => {
+        return authed(adminToken, "DELETE", `${API_URL}/api/rbac/services/${createdServiceId}/permanent`);
+      });
+  });
+
+  it("service permanent delete: archive → permanent delete → gone from both lists", () => {
+    let adminToken: string;
+    let createdServiceId: number;
+
+    login("admin", "admin123")
+      .then((t) => {
+        adminToken = t;
+        return authed(t, "POST", `${API_URL}/api/rbac/services`, {
+          nom: `Test Perm Delete ${Date.now()}`,
+          code: `test-perm-delete-${Date.now()}`,
+          description: "Temporary service for permanent delete test",
+        });
+      })
+      .then((res) => {
+        expect(res.status).to.eq(200);
+        createdServiceId = res.body.id;
+
+        // Archive first
+        return authed(adminToken, "DELETE", `${API_URL}/api/rbac/services/${createdServiceId}`).then((r) => {
+          expect(r.status).to.eq(200);
+        });
+      })
+      // Now permanently delete
+      .then(() => {
+        return authed(adminToken, "DELETE", `${API_URL}/api/rbac/services/${createdServiceId}/permanent`).then((r) => {
+          expect(r.status).to.eq(200);
+        });
+      })
+      // Verify it's gone from both lists
+      .then(() => {
+        return authed(adminToken, "GET", `${API_URL}/api/rbac/services?includeInactive=true`).then((r) => {
+          const ids = (r.body as { id: number }[]).map((s) => s.id);
+          expect(ids).to.not.include(createdServiceId);
+        });
+      });
+  });
+
+  it("service permanent delete blocked when users assigned", () => {
+    let adminToken: string;
+    let bureauOrdreId: number;
+
+    login("admin", "admin123")
+      .then((t) => {
+        adminToken = t;
+        // Get bureauordre service ID
+        return authed(t, "GET", `${API_URL}/api/rbac/permissions/matrix`).then((res) => {
+          const svc = (res.body as { services: { id: number; code: string }[] }).services.find(
+            (s) => s.code === "bureauordre",
+          );
+          bureauOrdreId = svc!.id;
+        });
+      })
+      // Archive it
+      .then(() => {
+        return authed(adminToken, "DELETE", `${API_URL}/api/rbac/services/${bureauOrdreId}`);
+      })
+      // Try to permanently delete (should fail because users are assigned)
+      .then(() => {
+        return authed(adminToken, "DELETE", `${API_URL}/api/rbac/services/${bureauOrdreId}/permanent`).then((r) => {
+          expect(r.status).to.eq(400);
+          expect(r.body.error).to.include("utilisateur");
+        });
+      })
+      // Restore it since we can't permanently delete
+      .then(() => {
+        return authed(adminToken, "POST", `${API_URL}/api/rbac/services/${bureauOrdreId}/restore`);
+      });
+  });
+
+  // ─────────────────────────────────────────────────
+  //  Active services filter (only active in dropdowns)
+  // ─────────────────────────────────────────────────
+
+  it("active services filter: GET /api/rbac/services returns only active by default", () => {
+    let adminToken: string;
+    let createdServiceId: number;
+
+    login("admin", "admin123")
+      .then((t) => {
+        adminToken = t;
+        return authed(t, "POST", `${API_URL}/api/rbac/services`, {
+          nom: `Test Filter Service ${Date.now()}`,
+          code: `test-filter-${Date.now()}`,
+          description: "Temporary for filter test",
+        });
+      })
+      .then((res) => {
+        createdServiceId = res.body.id;
+        // Archive it
+        return authed(adminToken, "DELETE", `${API_URL}/api/rbac/services/${createdServiceId}`);
+      })
+      // Without includeInactive, should NOT appear
+      .then(() => {
+        return authed(adminToken, "GET", `${API_URL}/api/rbac/services`).then((r) => {
+          const ids = (r.body as { id: number }[]).map((s) => s.id);
+          expect(ids).to.not.include(createdServiceId);
+        });
+      })
+      // With includeInactive=true, SHOULD appear
+      .then(() => {
+        return authed(adminToken, "GET", `${API_URL}/api/rbac/services?includeInactive=true`).then((r) => {
+          const ids = (r.body as { id: number }[]).map((s) => s.id);
+          expect(ids).to.include(createdServiceId);
+        });
+      })
+      // Clean up
+      .then(() => {
+        return authed(adminToken, "DELETE", `${API_URL}/api/rbac/services/${createdServiceId}/permanent`);
+      });
+  });
+
+  // ─────────────────────────────────────────────────
+  //  Multi-user transfer routing
+  // ─────────────────────────────────────────────────
+
+  it("multi-user transfer: targetUserIds creates separate transactions per user", () => {
+    let adminToken: string;
+    let boToken: string;
+    let archiveUserIds: number[];
+    let docId: number;
+
+    login("admin", "admin123")
+      .then((t) => { adminToken = t; })
+      // Get archive service users
+      .then(() => {
+        return authed(adminToken, "GET", `${API_URL}/api/Users/by-service/archive`).then((r) => {
+          archiveUserIds = (r.body as { id: number }[]).map((u) => u.id);
+          expect(archiveUserIds.length).to.be.greaterThan(0, "archive service should have users");
+        });
+      })
+      // Login as bureauordre and create a doc
+      .then(() => login("bureauordre", "bureauordre123"))
+      .then((t) => {
+        boToken = t;
+        return authed(boToken, "POST", `${API_URL}/api/CourrierAdmin`, {
+          NumeroOrdre: `MULTI-USER-TEST-${Date.now()}`,
+          Expediteur: "Test",
+          Objet: "Multi-user transfer test",
+        }).then((res) => {
+          docId = res.body.courrier?.id ?? res.body.id;
+        });
+      })
+      // Transfer with targetUserIds (pick first 2 users if available)
+      .then(() => {
+        const targetIds = archiveUserIds.slice(0, 2);
+        return authed(boToken, "POST", `${API_URL}/api/Transfer`, {
+          documentId: docId,
+          documentType: "entrant-admin",
+          serviceDestination: "Archive",
+          targetUserIds: targetIds,
+        }).then((r) => {
+          expect(r.status).to.eq(200);
+          // Should create one transaction per selected user
+          expect(r.body.transactionIds).to.have.length(targetIds.length);
+        });
+      });
+  });
+
+  it("multi-user transfer: single targetUserId still works (backward compat)", () => {
+    let boToken: string;
+    let docId: number;
+
+    login("bureauordre", "bureauordre123")
+      .then((t) => {
+        boToken = t;
+        return authed(boToken, "POST", `${API_URL}/api/CourrierAdmin`, {
+          NumeroOrdre: `SINGLE-USER-TEST-${Date.now()}`,
+          Expediteur: "Test",
+          Objet: "Single user transfer test",
+        }).then((res) => {
+          docId = res.body.courrier?.id ?? res.body.id;
+        });
+      })
+      .then(() => {
+        return authed(boToken, "POST", `${API_URL}/api/Transfer`, {
+          documentId: docId,
+          documentType: "entrant-admin",
+          serviceDestination: "Archive",
+          targetUserId: 1,
+        }).then((r) => {
+          expect(r.status).to.eq(200);
+          expect(r.body.transactionIds).to.have.length(1);
+        });
+      });
+  });
 });

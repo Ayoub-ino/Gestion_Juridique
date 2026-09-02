@@ -52,7 +52,7 @@
 | Permission Key | API Endpoints (Backend) | UI Elements (Frontend) | Services |
 |---|---|---|---|
 | `gerer_utilisateurs` | `GET /api/Users`, `POST /api/Users`, `PUT /api/Users/{id}`, `DELETE /api/Users/{id}`, `PATCH /api/Users/{id}/toggle-active`, `GET /api/Users/{id}/substitutes` | "Utilisateurs" admin sidebar link; GestionUtilisateurs panel | Admin only |
-| `gerer_services` | `POST /api/Services`, `PUT /api/Services/{id}`, `DELETE /api/Services/{id}`, `GET /api/Services/historical`, `POST /api/Services/historical`, `PUT /api/Services/historical/{id}`, `DELETE /api/Services/historical/{id}`, `GET /api/Services/historical/restore/{id}`, `POST /api/Services/historical/restore/{id}`, `GET /api/rbac/services`, `PUT /api/rbac/services/{id}` | "Services" + "Services historiques" admin sidebar links; GestionServices + GestionServicesHistoriques panels | Admin, Greffier |
+| `gerer_services` | `POST /api/rbac/services`, `PUT /api/rbac/services/{id}`, `DELETE /api/rbac/services/{id}` (soft-delete), `POST /api/rbac/services/{id}/restore`, `DELETE /api/rbac/services/{id}/permanent`, `GET /api/rbac/services?includeInactive=true`, `POST /api/Services/historical`, `PUT /api/Services/historical/{id}`, `DELETE /api/Services/historical/{id}`, `POST /api/Services/historical/{id}/restore` | "Services" + "Services historiques" admin sidebar links; GestionServices (with archive view: restore + permanent delete) + GestionServicesHistoriques panels | Admin, Greffier |
 | `gerer_permissions` | `GET /api/rbac/permissions/matrix`, `PUT /api/rbac/permissions/service/{id}`, `PUT /api/rbac/permissions/admin` | "Permissions" admin sidebar link; GestionPermissions panel | Admin only |
 | `gerer_equipements` | `POST /api/Equipment`, `PUT /api/Equipment/{id}`, `DELETE /api/Equipment/{id}`, `GET /api/Equipment/{id}/assignments` | "Équipements" admin sidebar link; GestionEquipements panel | Admin, Greffier |
 | `gerer_listes` | `POST /api/ListItems`, `PUT /api/ListItems/{id}`, `DELETE /api/ListItems/{id}` | "Listes dynamiques" admin sidebar link; GestionListes panel | Admin, Greffier |
@@ -155,13 +155,43 @@ All `gerer_*` permissions, `voir_corbeille`, `voir_workspace`, `voir_historique`
 
 ---
 
+## Service Soft-Delete & Archive Workflow
+
+### Soft-Delete (Archive) Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `DELETE /api/rbac/services/{id}` | Soft-delete | Sets `IsActive = false`, `DeletedAt = now` |
+| `GET /api/rbac/services?includeInactive=true` | List all | Returns both active and archived services |
+| `GET /api/rbac/services` | List active | Returns only active services (default, no `includeInactive` param) |
+| `POST /api/rbac/services/{id}/restore` | Restore | Sets `IsActive = true`, `DeletedAt = null` |
+| `DELETE /api/rbac/services/{id}/permanent` | Permanent delete | Removes the service from DB (only if no users assigned) |
+
+### Archive Rules
+
+- **Active filter**: All service dropdowns (TransferModal, etc.) query only active services by default.
+- **Permanent delete guard**: Cannot permanently delete a service with assigned users (returns 400).
+- **Admin archive view**: The GestionServices panel has a "Voir Archives" button showing archived services with Restore and Permanent Delete actions.
+- **Migration**: `AddSoftDeleteToService` migration adds `IsActive` and `DeletedAt` columns to the `Services` table.
+
+### Multi-User Transfer Routing
+
+| Feature | Description |
+|---|---|
+| `targetUserIds` | Array of user IDs in `POST /api/Transfer` body |
+| Behavior | Creates a separate transaction for each selected user |
+| Backward compat | `targetUserId` (single) still works, `targetUserIds` takes priority |
+| UI | TransferModal shows checkboxes for selecting multiple users per service |
+
+---
+
 ## Audit Commands
 
 ```bash
 # Run the full permission audit (46 checks)
 bash scripts/permission-audit.sh
 
-# Run Cypress E2E tests (52 tests)
+# Run Cypress E2E tests (58 tests)
 cd frontend-juridique && npx cypress run
 
 # Run .NET unit tests (85 tests)
