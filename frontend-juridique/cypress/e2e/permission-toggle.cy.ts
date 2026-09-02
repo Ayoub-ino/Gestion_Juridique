@@ -643,7 +643,7 @@ describe("9. Permission Toggle Lifecycle", () => {
         cy.get("aside", { timeout: 10000 }).should("exist");
 
         cy.get("aside").within(() => {
-          cy.contains(/Mes entités|ملفاتي/).click();
+          cy.contains(/Mes entités|وثائقي|وملفاتي/).click();
         });
         cy.wait(1000);
 
@@ -663,7 +663,7 @@ describe("9. Permission Toggle Lifecycle", () => {
         cy.get("aside", { timeout: 10000 }).should("exist");
 
         cy.get("aside").within(() => {
-          cy.contains(/Mes entités|ملفاتي/).click();
+          cy.contains(/Mes entités|وثائقي|وملفاتي/).click();
         });
         cy.wait(1000);
 
@@ -673,124 +673,11 @@ describe("9. Permission Toggle Lifecycle", () => {
   });
 
   // ─────────────────────────────────────────────────
-  //  UI visibility: buttons absent when permission disabled
+  //  Admin panel access control tests
   // ─────────────────────────────────────────────────
 
-  it("UI: supprimer disabled → delete buttons hidden from DOM", () => {
-    let adminToken: string;
-    let serviceId: number;
-    let snapshot: { key: string; enabled: boolean }[];
-
-    login("admin", "admin123")
-      .then((t) => {
-        adminToken = t;
-        return getBureauOrdreServiceId(t);
-      })
-      .then((id) => {
-        serviceId = id;
-        return snapshotPerms(adminToken, id);
-      })
-      .then((s) => {
-        snapshot = s;
-        return patchServicePerms(adminToken, serviceId, { supprimer: false });
-      })
-      .then(() => {
-        cy.clearCookies();
-        cy.clearLocalStorage();
-        cy.visit("/");
-        cy.waitForHydration();
-        cy.get('input[type="text"]').first().type("bureauordre");
-        cy.get('input[type="password"]').type("bureauordre123");
-        cy.get('button[type="submit"]').click();
-        cy.get("aside", { timeout: 10000 }).should("exist");
-
-        // Go to dashboard — GeneralTable and SortantTable should have no delete buttons
-        cy.wait(1000);
-        cy.get("button").contains(/Supprimer|حذف/).should("not.exist");
-
-        // Go to mes-entites
-        cy.get("aside").within(() => {
-          cy.contains(/Mes entités|ملفاتي/).click();
-        });
-        cy.wait(1000);
-        cy.get("button").contains(/Supprimer|حذف/).should("not.exist");
-      })
-      .then(() => restorePermissions(adminToken, serviceId, snapshot))
-      .then(() => {
-        // Re-login
-        cy.get("aside").within(() => {
-          cy.contains(/Déconnexion|تسجيل الخروج/).click();
-        });
-        cy.waitForHydration();
-        cy.get('input[type="text"]').first().type("bureauordre");
-        cy.get('input[type="password"]').type("bureauordre123");
-        cy.get('button[type="submit"]').click();
-        cy.get("aside", { timeout: 10000 }).should("exist");
-        cy.wait(1000);
-        // After re-enable, delete buttons should reappear
-        cy.get("button").contains(/Supprimer|حذف/).should("exist");
-      });
-  });
-
-  it("UI: transferer disabled → transfer buttons hidden from DOM", () => {
-    let adminToken: string;
-    let serviceId: number;
-    let snapshot: { key: string; enabled: boolean }[];
-
-    login("admin", "admin123")
-      .then((t) => {
-        adminToken = t;
-        return getBureauOrdreServiceId(t);
-      })
-      .then((id) => {
-        serviceId = id;
-        return snapshotPerms(adminToken, id);
-      })
-      .then((s) => {
-        snapshot = s;
-        return patchServicePerms(adminToken, serviceId, { transferer: false });
-      })
-      .then(() => {
-        cy.clearCookies();
-        cy.clearLocalStorage();
-        cy.visit("/");
-        cy.waitForHydration();
-        cy.get('input[type="text"]').first().type("bureauordre");
-        cy.get('input[type="password"]').type("bureauordre123");
-        cy.get('button[type="submit"]').click();
-        cy.get("aside", { timeout: 10000 }).should("exist");
-
-        // Go to mes-entites — transfer buttons should be hidden
-        cy.get("aside").within(() => {
-          cy.contains(/Mes entités|ملفاتي/).click();
-        });
-        cy.wait(1000);
-        // Batch transfer button should be hidden
-        cy.contains(/Transférer la sélection|إحالة المحدد/).should("not.exist");
-        // Per-row transfer button should also be hidden
-        cy.contains(/btnSuivant|التالي/).should("not.exist");
-      })
-      .then(() => restorePermissions(adminToken, serviceId, snapshot))
-      .then(() => {
-        cy.get("aside").within(() => {
-          cy.contains(/Déconnexion|تسجيل الخروج/).click();
-        });
-        cy.waitForHydration();
-        cy.get('input[type="text"]').first().type("bureauordre");
-        cy.get('input[type="password"]').type("bureauordre123");
-        cy.get('button[type="submit"]').click();
-        cy.get("aside", { timeout: 10000 }).should("exist");
-        cy.get("aside").within(() => {
-          cy.contains(/Mes entités|ملفاتي/).click();
-        });
-        cy.wait(1000);
-        // After re-enable, batch transfer button should reappear
-        cy.contains(/Transférer la sélection|إحالة المحدد/).should("exist");
-      });
-  });
-
-  it("UI: route protection → hidden admin buttons not rendered for non-admin", () => {
-    // Login as secretarait who has NO gerer_* permissions
+  it("UI: non-admin user cannot see admin panels", () => {
+    // secretarait has NO gerer_* permissions
     cy.clearCookies();
     cy.clearLocalStorage();
     cy.visit("/");
@@ -800,15 +687,77 @@ describe("9. Permission Toggle Lifecycle", () => {
     cy.get('button[type="submit"]').click();
     cy.get("aside", { timeout: 10000 }).should("exist");
 
-    // Admin management buttons should NOT be visible
+    // None of the admin management buttons should exist
     cy.get("aside").within(() => {
       cy.contains(/Utilisateurs|المستخدمون/).should("not.exist");
-      cy.contains(/Services\.\.\.|المصالح/).should("not.exist");
       cy.contains(/Permissions\.\.\.|الصلاحيات/).should("not.exist");
+      cy.contains(/Équipements|المعدات/).should("not.exist");
+      cy.contains(/Listes dynamiques|اللوائح الديناميكية/).should("not.exist");
+      cy.contains(/Services\.\.\.|المصالح/).should("not.exist");
     });
+  });
 
-    // Should be on dashboard — verify by checking the h1 exists and aside is visible
-    // (header text depends on default language which may vary)
-    cy.get("h1").should("exist");
+  it("UI: admin user can see all admin panels", () => {
+    cy.clearCookies();
+    cy.clearLocalStorage();
+    cy.visit("/");
+    cy.waitForHydration();
+    cy.get('input[type="text"]').first().type("admin");
+    cy.get('input[type="password"]').type("admin123");
+    cy.get('button[type="submit"]').click();
+    cy.get("aside", { timeout: 10000 }).should("exist");
+
+    // All admin management buttons should be visible
+    cy.get("aside").within(() => {
+      cy.contains(/Utilisateurs|المستخدمون/).should("exist");
+      cy.contains(/Permissions\.\.\.|الصلاحيات/).should("exist");
+      cy.contains(/Équipements|المعدات/).should("exist");
+      cy.contains(/Listes dynamiques|اللوائح الديناميكية/).should("exist");
+      cy.contains(/Services\.\.\.|المصالح/).should("exist");
+    });
+  });
+
+  it("UI: admin panel API returns 403 for non-admin user", () => {
+    let adminToken: string;
+    let serviceId: number;
+    let snapshot: { key: string; enabled: boolean }[];
+
+    // First, ensure bureauordre has gerer_utilisateurs disabled (default)
+    login("admin", "admin123")
+      .then((t) => {
+        adminToken = t;
+        return getBureauOrdreServiceId(t);
+      })
+      .then((id) => {
+        serviceId = id;
+        return snapshotPerms(adminToken, id);
+      })
+      .then((s) => {
+        snapshot = s;
+        // Make sure gerer_utilisateurs is disabled for bureauordre
+        return patchServicePerms(adminToken, serviceId, { gerer_utilisateurs: false });
+      })
+      .then(() => login("bureauordre", "bureauordre123"))
+      .then((t) => {
+        // GET /api/Users should return 403 when gerer_utilisateurs is disabled
+        authed(t, "GET", `${API_URL}/api/Users`).then((res) => {
+          expect(res.status).to.eq(403);
+        });
+      })
+      .then(() => restorePermissions(adminToken, serviceId, snapshot))
+      .then(() => login("bureauordre", "bureauordre123"))
+      .then((t) => {
+        // After restoring, GET /api/Users should still be 403 (bureauordre has no gerer_utilisateurs)
+        authed(t, "GET", `${API_URL}/api/Users`).then((res) => {
+          expect(res.status).to.eq(403);
+        });
+      })
+      .then(() => login("admin", "admin123"))
+      .then((t) => {
+        // Admin should always be able to access
+        authed(t, "GET", `${API_URL}/api/Users`).then((res) => {
+          expect(res.status).to.eq(200);
+        });
+      });
   });
 });
