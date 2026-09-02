@@ -1025,4 +1025,59 @@ describe("9. Permission Toggle Lifecycle", () => {
         });
       });
   });
+
+  // ─────────────────────────────────────────────────
+  //  Archive API: archive → hidden → archived list → restore → back
+  // ─────────────────────────────────────────────────
+
+  it("UI: admin archive view — archive service, verify hidden, restore, verify back", () => {
+    let adminToken: string;
+    let svcId: number;
+    const code = `e2e-archive-${Date.now()}`;
+
+    login("admin", "admin123")
+      .then((t) => {
+        adminToken = t;
+        return authed(t, "POST", `${API_URL}/api/rbac/services`, {
+          nom: `E2E Archive ${Date.now()}`,
+          code,
+          description: "test",
+        });
+      })
+      .then((r) => {
+        svcId = r.body.id;
+        // Archive it
+        return authed(adminToken, "DELETE", `${API_URL}/api/rbac/services/${svcId}`);
+      })
+      .then((r) => {
+        expect(r.status).to.eq(200);
+        // Verify hidden from active list
+        return authed(adminToken, "GET", `${API_URL}/api/rbac/services`);
+      })
+      .then((r) => {
+        const ids = (r.body as { id: number }[]).map((s) => s.id);
+        expect(ids).to.not.include(svcId);
+        // Verify visible in archived list with Restore/Delete available
+        return authed(adminToken, "GET", `${API_URL}/api/rbac/services?includeInactive=true`);
+      })
+      .then((r) => {
+        const svc = (r.body as { id: number; isActive: boolean }[]).find((s) => s.id === svcId);
+        expect(svc).to.exist;
+        expect(svc!.isActive).to.eq(false);
+      })
+      // Restore
+      .then(() => authed(adminToken, "POST", `${API_URL}/api/rbac/services/${svcId}/restore`))
+      .then((r) => {
+        expect(r.status).to.eq(200);
+        // Verify back in active list
+        return authed(adminToken, "GET", `${API_URL}/api/rbac/services`);
+      })
+      .then((r) => {
+        const ids = (r.body as { id: number }[]).map((s) => s.id);
+        expect(ids).to.include(svcId);
+      })
+      // Clean up
+      .then(() => authed(adminToken, "DELETE", `${API_URL}/api/rbac/services/${svcId}/permanent`));
+  });
+
 });

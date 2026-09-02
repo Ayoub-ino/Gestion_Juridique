@@ -1,3 +1,28 @@
+#!/usr/bin/env bash
+# generate-permission-matrix.sh
+# Auto-generates PERMISSION_MATRIX.md from the codebase.
+# Usage: bash scripts/generate-permission-matrix.sh
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+BACKEND="$ROOT_DIR/WebApplication1/WebApplication1"
+FRONTEND="$ROOT_DIR/frontend-juridique"
+OUTPUT="$ROOT_DIR/PERMISSION_MATRIX.md"
+
+# Count tests
+CYPRESS_COUNT=$(grep -c '^\s*it(' "$FRONTEND/cypress/e2e/permission-toggle.cy.ts" 2>/dev/null || echo "0")
+CYPRESS_APP_COUNT=$(grep -c '^\s*it(' "$FRONTEND/cypress/e2e/app.cy.ts" 2>/dev/null || echo "0")
+DOTNET_COUNT=$(grep -c '\[Fact\]\|\[Theory\]' "$ROOT_DIR/WebApplication1/WebApplication1.Tests/"*.cs 2>/dev/null | awk -F: '{s+=$2}END{print s+0}')
+
+echo "Scanning backend controllers..."
+
+# Get all unique permissions
+ALL_PERMS=$(grep -rn 'RequirePermission' "$BACKEND/Controllers/" 2>/dev/null | \
+    sed 's/.*RequirePermission("\([^"]*\)".*/\1/' | sort -u)
+
+cat > "$OUTPUT" << EOF
 # 📋 Permission Matrix — Complete Reference
 
 > Every permission key in the system, with its protected API endpoints and guarded UI elements.
@@ -9,24 +34,17 @@
 
 | # | Permission Key | Backend Controllers |
 |---|---|---|
-| 1 | `accepter` | TransactionsController.cs |
-| 2 | `ajouter_notes` | WorkspaceController.cs |
-| 3 | `archiver` | DocumentsController.cs |
-| 4 | `creer_courrier_admin` | CourrierAdminController.cs |
-| 5 | `creer_courrier_juridique` | CourrierJuridiqueController.cs |
-| 6 | `creer_modifier` | CourrierSortantController.cs |
-| 7 | `gerer_equipements` | EquipmentController.cs |
-| 8 | `gerer_listes` | ListItemsController.cs |
-| 9 | `gerer_permissions` | RbacPermissionsController.cs |
-| 10 | `gerer_services` | HistoricalServicesController.cs,RbacServicesController.cs,ServicesController.cs |
-| 11 | `gerer_utilisateurs` | UsersController.cs |
-| 12 | `refuser` | TransactionsController.cs |
-| 13 | `restaurer` | DocumentsController.cs |
-| 14 | `retrait_archive` | RetraitController.cs |
-| 15 | `supprimer` | CourrierAdminController.cs,CourrierJuridiqueController.cs,CourrierSortantController.cs,DocumentsController.cs |
-| 16 | `transferer` | TransferController.cs |
-| 17 | `transferer_juridique` | ActionsJuridiquesController.cs,TransactionJuridiqueController.cs |
-| 18 | `voir_corbeille` | DocumentsController.cs |
+EOF
+
+i=1
+for perm in $ALL_PERMS; do
+    controllers=$(grep -rn "RequirePermission(\"$perm\")" "$BACKEND/Controllers/" 2>/dev/null | \
+        cut -d: -f1 | sed "s|$BACKEND/Controllers/||" | sort -u | tr '\n' ', ' | sed 's/,$//')
+    echo "| $i | \`$perm\` | $controllers |" >> "$OUTPUT"
+    i=$((i+1))
+done
+
+cat >> "$OUTPUT" << 'EOF'
 
 ---
 
@@ -77,3 +95,10 @@ curl -X POST http://localhost:5200/api/seed/run -H "Authorization: Bearer $ADMIN
 # Regenerate this matrix
 bash scripts/generate-permission-matrix.sh
 ```
+EOF
+
+PERM_COUNT=$(echo "$ALL_PERMS" | wc -l)
+echo "✅ Generated $OUTPUT"
+echo "   Permissions found: $PERM_COUNT"
+echo "   Cypress tests: $CYPRESS_COUNT permission-toggle + $CYPRESS_APP_COUNT app"
+echo "   Dotnet tests: $DOTNET_COUNT"
