@@ -19,8 +19,9 @@ interface TransferModalProps {
   setTransferMustReturn: (b: boolean) => void;
   langue: Langue;
   cur: TranslationKeys;
-  targetUserId: number | null;
   setTargetUserId: (id: number | null) => void;
+  selectedUserIds: number[];
+  setSelectedUserIds: (ids: number[]) => void;
 }
 
 export function TransferModal({
@@ -35,12 +36,13 @@ export function TransferModal({
   setTransferMustReturn,
   langue,
   cur,
-  targetUserId,
-  setTargetUserId
+  setTargetUserId,
+  selectedUserIds,
+  setSelectedUserIds
 }: TransferModalProps) {
   const { token } = useAuth();
   const [serviceUsers, setServiceUsers] = useState<{ id: number; nom: string }[]>([]);
-  const [historicalServices, setHistoricalServices] = useState<{ id: number; code: string; nom: string; isActive: boolean }[]>([]);
+  const [historicalServices, setHistoricalServices] = useState<{ id: number; code: string; nom: string; isActive?: boolean }[]>([]);
 
   // Fetch historical services on mount
   useEffect(() => {
@@ -302,25 +304,69 @@ export function TransferModal({
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2">
-              {langue === "fr" ? "Attribuer à un utilisateur (optionnel)" : "تخصيص لمستخدم (اختياري)"}
+              {langue === "fr" ? "Attribuer à des utilisateurs (optionnel)" : "تخصيص لمستخدمين (اختياري)"}
             </label>
-            <select
-              value={targetUserId ?? ""}
-              onChange={(e) => setTargetUserId(e.target.value ? Number(e.target.value) : null)}
-              disabled={selectedServices.length === 0}
-              className="w-full p-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
-            >
-              <option value="">
-                {selectedServices.length === 0
-                  ? (langue === "fr" ? "Sélectionner d'abord un service" : "حدد مصلحة أولاً")
-                  : (langue === "fr" ? "-- Tous les utilisateurs du service --" : "-- جميع المستخدمين في المصلحة --")}
-              </option>
-              {serviceUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.nom}
-                </option>
-              ))}
-            </select>
+            {selectedServices.length === 0 ? (
+              <p className="text-xs text-slate-400 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                {langue === "fr" ? "Sélectionner d'abord un service" : "حدد مصلحة أولاً"}
+              </p>
+            ) : serviceUsers.length === 0 ? (
+              <p className="text-xs text-slate-400 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                {langue === "fr" ? "Aucun utilisateur actif dans ce service" : "لا يوجد مستخدمون نشطون في هذه المصلحة"}
+              </p>
+            ) : (
+              <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg bg-white">
+                <label className="flex items-center gap-2 p-2.5 border-b border-slate-100 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedUserIds.length === serviceUsers.length}
+                    ref={(el) => {
+                      if (el) el.indeterminate = selectedUserIds.length > 0 && selectedUserIds.length < serviceUsers.length;
+                    }}
+                    onChange={() => {
+                      if (selectedUserIds.length === serviceUsers.length) {
+                        setSelectedUserIds([]);
+                        setTargetUserId(null);
+                      } else {
+                        setSelectedUserIds(serviceUsers.map((u) => u.id));
+                        setTargetUserId(serviceUsers[0]?.id ?? null);
+                      }
+                    }}
+                    className="w-3.5 h-3.5 text-blue-600"
+                  />
+                  <span className="text-[10px] font-bold text-slate-500">
+                    {langue === "fr" ? "Sélectionner tous" : "تحديد الكل"}
+                  </span>
+                </label>
+                {serviceUsers.map((u) => (
+                  <label
+                    key={u.id}
+                    className={`flex items-center gap-2 p-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 cursor-pointer transition ${
+                      selectedUserIds.includes(u.id) ? "bg-blue-50" : ""
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedUserIds.includes(u.id)}
+                      onChange={() => {
+                        const next = selectedUserIds.includes(u.id)
+                          ? selectedUserIds.filter((id) => id !== u.id)
+                          : [...selectedUserIds, u.id];
+                        setSelectedUserIds(next);
+                        setTargetUserId(next.length > 0 ? next[0] : null);
+                      }}
+                      className="w-3.5 h-3.5 text-blue-600"
+                    />
+                    <span className="text-xs font-bold text-slate-700">{u.nom}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {selectedUserIds.length > 0 && (
+              <p className="text-[10px] text-blue-600 font-bold mt-1">
+                {selectedUserIds.length} {langue === "fr" ? "utilisateur(s) sélectionné(s)" : "مستخدم(ين) محدد(ين)"}
+              </p>
+            )}
           </div>
 
           <div>

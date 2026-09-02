@@ -87,29 +87,64 @@ namespace WebApplication1.Controllers
 
             var transactionIds = new List<int>();
 
+            // Resolve target user IDs: prefer TargetUserIds (multi-user), fall back to TargetUserId (single)
+            var targetUserIds = dto.TargetUserIds?.Count > 0
+                ? dto.TargetUserIds
+                : dto.TargetUserId.HasValue
+                    ? new List<int> { dto.TargetUserId.Value }
+                    : new List<int>();
+
             foreach (var dest in destinations)
             {
                 // Historique services are record-only entities with no login —
                 // auto-accept the transfer immediately since no one can accept/refuse.
                 var statut = isHistorical ? StatutTransaction.Accepte : StatutTransaction.EnAttente;
 
-                var transaction = new Transaction
+                if (targetUserIds.Count > 0)
                 {
-                    DocumentId = document.Id,
-                    ServiceOrigine = serviceOrigine,
-                    ServiceDestination = dest,
-                    DateTransaction = DateTime.Now,
-                    Remarques = dto.Message,
-                    UtilisateurId = userId.ToString(),
-                    Statut = statut,
-                    DoitRevenir = dto.DoitRevenir,
-                    TargetUserId = dto.TargetUserId,
-                    StatutPrecedent = document.StatutActuel,
-                    HistoricalServiceCode = historicalServiceCode
-                };
-                _context.Transactions.Add(transaction);
-                await _context.SaveChangesAsync();
-                transactionIds.Add(transaction.Id);
+                    // Multi-user routing: create a separate transaction for each selected user
+                    foreach (var uid in targetUserIds)
+                    {
+                        var transaction = new Transaction
+                        {
+                            DocumentId = document.Id,
+                            ServiceOrigine = serviceOrigine,
+                            ServiceDestination = dest,
+                            DateTransaction = DateTime.Now,
+                            Remarques = dto.Message,
+                            UtilisateurId = userId.ToString(),
+                            Statut = statut,
+                            DoitRevenir = dto.DoitRevenir,
+                            TargetUserId = uid,
+                            StatutPrecedent = document.StatutActuel,
+                            HistoricalServiceCode = historicalServiceCode
+                        };
+                        _context.Transactions.Add(transaction);
+                        await _context.SaveChangesAsync();
+                        transactionIds.Add(transaction.Id);
+                    }
+                }
+                else
+                {
+                    // Single/any-user routing: create one transaction for the service
+                    var transaction = new Transaction
+                    {
+                        DocumentId = document.Id,
+                        ServiceOrigine = serviceOrigine,
+                        ServiceDestination = dest,
+                        DateTransaction = DateTime.Now,
+                        Remarques = dto.Message,
+                        UtilisateurId = userId.ToString(),
+                        Statut = statut,
+                        DoitRevenir = dto.DoitRevenir,
+                        TargetUserId = null,
+                        StatutPrecedent = document.StatutActuel,
+                        HistoricalServiceCode = historicalServiceCode
+                    };
+                    _context.Transactions.Add(transaction);
+                    await _context.SaveChangesAsync();
+                    transactionIds.Add(transaction.Id);
+                }
             }
 
             // For historical services, keep document.ServiceActuel as-is (or set to Archive)
@@ -174,6 +209,12 @@ namespace WebApplication1.Controllers
         public string? Message { get; set; }
         public bool DoitRevenir { get; set; }
         public int? TargetUserId { get; set; }
+        /// <summary>
+        /// Multiple target user IDs for multi-user routing.
+        /// When provided, creates a separate transaction for each user.
+        /// Falls back to TargetUserId if null.
+        /// </summary>
+        public List<int>? TargetUserIds { get; set; }
         /// <summary>
         /// When true, the destination is a Historical (record-only) service.
         /// The transfer is auto-accepted since historical entities cannot log in.

@@ -21,10 +21,17 @@ namespace WebApplication1.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] bool includeInactive = false)
         {
-            var services = await _context.RbacServices
+            var query = _context.RbacServices
                 .Include(s => s.Parent)
+                .AsQueryable();
+
+            // Only return active services by default (for dispatch forms, dropdowns, etc.)
+            if (!includeInactive)
+                query = query.Where(s => s.IsActive);
+
+            var services = await query
                 .OrderBy(s => s.Nom)
                 .Select(s => new
                 {
@@ -33,6 +40,8 @@ namespace WebApplication1.Controllers
                     s.Code,
                     s.Description,
                     s.ParentId,
+                    s.IsActive,
+                    s.DeletedAt,
                     ParentNom = s.Parent != null ? s.Parent.Nom : null,
                     UserCount = _context.Utilisateurs.Count(u => u.ServiceId == s.Id)
                 })
@@ -108,18 +117,58 @@ namespace WebApplication1.Controllers
             if (service == null)
                 return NotFound(new { error = "Service non trouvé" });
 
-            // Check if users are assigned
+            if (!service.IsActive)
+                return BadRequest(new { error = "Ce service est déjà archivé" });
+
+            // Soft-delete: mark as archived instead of removing
+            service.IsActive = false;
+            service.DeletedAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Service archivé avec succès" });
+        }
+
+        [HttpPost("{id}/restore")]
+        [RequirePermission("gerer_services")]
+        public async Task<IActionResult> Restore(int id)
+        {
+            var service = await _context.RbacServices.FindAsync(id);
+            if (service == null)
+                return NotFound(new { error = "Service non trouvé" });
+
+            service.IsActive = true;
+            service.DeletedAt = null;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Service restauré avec succès" });
+        }
+
+        [HttpDelete("{id}/permanent")]
+        [RequirePermission("gerer_services")]
+        public async Task<IActionResult> PermanentDelete(int id)
+        {
+            var service = await _context.RbacServices.FindAsync(id);
+            if (service == null)
+                return NotFound(new { error = "Service non trouvé" });
+
+            // Check if users are assigned — cannot permanently delete if users exist
             var userCount = await _context.Utilisateurs.CountAsync(u => u.ServiceId == id);
             if (userCount > 0)
-                return BadRequest(new { error = $"Impossible de supprimer: {userCount} utilisateur(s) assigné(s) à ce service" });
+                return BadRequest(new { error = $"Impossible de supprimer définitivement: {userCount} utilisateur(s) assigné(s) à ce service" });
 
             // Remove service permissions
             var perms = await _context.ServicePermissions.Where(sp => sp.ServiceId == id).ToListAsync();
             _context.ServicePermissions.RemoveRange(perms);
 
+            // Remove children references
+            var children = await _context.RbacServices.Where(s => s.ParentId == id).ToListAsync();
+            foreach (var child in children)
+                child.ParentId = null;
+
             _context.RbacServices.Remove(service);
             await _context.SaveChangesAsync();
-            return Ok(new { message = "Service supprimé avec succès" });
+
+            return Ok(new { message = "Service supprimé définitivement" });
         }
     }
 

@@ -21,5 +21,9 @@ namespace WebApplication1.Models
         public Service? Parent { get; set; }
         public ICollection<Service> Children { get; set; } = new List<Service>();
         public ICollection<ServicePermission> ServicePermissions { get; set; } = new List<ServicePermission>();
+
+        // Soft delete
+        public bool IsActive { get; set; } = true;
+        public DateTime? DeletedAt { get; set; }
     }
 }

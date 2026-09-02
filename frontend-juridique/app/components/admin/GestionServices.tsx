@@ -17,16 +17,32 @@ interface Props {
 
 export function GestionServices({ langue, cur, token, onExport }: Props) {
   const [services, setServices] = useState<RbacService[]>([]);
+  const [archivedServices, setArchivedServices] = useState<RbacService[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ nom: "", code: "", description: "" });
+  const [showArchived, setShowArchived] = useState(false);
+  const [loadingArchived, setLoadingArchived] = useState(false);
 
   const fetchServices = useCallback(async () => {
     try {
+      // Only fetch active services by default
       setServices(await api.get<RbacService[]>("/api/rbac/services", token));
     } catch (err) { console.error("Erreur fetch services:", err); }
   }, [token]);
+
+  const fetchArchivedServices = async () => {
+    setLoadingArchived(true);
+    try {
+      const data = await api.get<(RbacService & { isActive?: boolean })[]>("/api/rbac/services?includeInactive=true", token);
+      setArchivedServices(data.filter((s) => s.isActive === false));
+    } catch (err) {
+      console.error("Erreur lors du chargement des services archivés", err);
+    } finally {
+      setLoadingArchived(false);
+    }
+  };
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
 
@@ -57,11 +73,36 @@ export function GestionServices({ langue, cur, token, onExport }: Props) {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm(langue === "fr" ? "Supprimer ce service ?" : "هل تريد حذف هذه المصلحة؟")) return;
+    if (!confirm(langue === "fr" ? "Archiver ce service ?" : "هل تريد أرشفة هذه المصلحة؟")) return;
     try {
       await api.delete(`/api/rbac/services/${id}`, token);
       fetchServices();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      alert(getErrorMessage(err) || (langue === "fr" ? "Erreur" : "خطأ"));
+    }
+  };
+
+  const handleRestore = async (id: number) => {
+    if (!confirm(langue === "fr" ? "Restaurer ce service ?" : "هل تريد استعادة هذه المصلحة؟")) return;
+    try {
+      await api.post(`/api/rbac/services/${id}/restore`, undefined, token);
+      alert(langue === "fr" ? "Service restauré" : "تمت استعادة المصلحة");
+      fetchArchivedServices();
+      fetchServices();
+    } catch (err) {
+      alert(getErrorMessage(err) || (langue === "fr" ? "Erreur" : "خطأ"));
+    }
+  };
+
+  const handlePermanentDelete = async (id: number) => {
+    if (!confirm(langue === "fr" ? "Supprimer définitivement ce service ? Cette action est irréversible." : "هل تريد الحذف نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.")) return;
+    try {
+      await api.delete(`/api/rbac/services/${id}/permanent`, token);
+      alert(langue === "fr" ? "Service supprimé définitivement" : "تم الحذف نهائياً");
+      fetchArchivedServices();
+    } catch (err) {
+      alert(getErrorMessage(err) || (langue === "fr" ? "Erreur" : "خطأ"));
+    }
   };
 
   return (
@@ -78,6 +119,12 @@ export function GestionServices({ langue, cur, token, onExport }: Props) {
           <button type="button" onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ nom: "", code: "", description: "" }); }}
             className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">
             + {cur.ajouter}
+          </button>
+          <button
+            onClick={() => { setShowArchived(true); fetchArchivedServices(); }}
+            className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2 text-xs"
+          >
+            🗂️ {cur.voirArchives}
           </button>
         </div>
       </div>
@@ -120,58 +167,106 @@ export function GestionServices({ langue, cur, token, onExport }: Props) {
       <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 className="font-bold text-slate-800 text-xs">
-            {langue === "fr" ? "Services RBAC (8 définis)" : "مصالح RBAC (8 معرفة)"}
+            {langue === "fr" ? "Services RBAC" : "مصالح RBAC"}
           </h3>
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500">
-              {filtered.length} / 8 {langue === "fr" ? "services" : "مصلحة"}
+              {filtered.length} {langue === "fr" ? "service(s)" : "مصلحة"}
             </span>
             {onExport && (
               <ExportButtons onExcel={() => onExport("export excel")} onWord={() => onExport("export word")} />
             )}
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-sky-50 border-b border-sky-200 text-slate-700">
-              <tr>
-                <th className="p-3 text-start">ID</th>
-                <th className="p-3 text-start">{langue === "fr" ? "Nom" : "الاسم"}</th>
-                <th className="p-3 text-start">{langue === "fr" ? "Code" : "الكود"}</th>
-                <th className="p-3 text-start">{langue === "fr" ? "Description" : "الوصف"}</th>
-                <th className="p-3 text-center">{langue === "fr" ? "Utilisateurs" : "المستخدمون"}</th>
-                <th className="p-3 text-center">{cur.tblActions}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-bold">{cur.aucunDoc}</td></tr>
-              ) : (
-                filtered.map(s => (
-                  <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="p-3 font-mono">{s.id}</td>
-                    <td className="p-3 font-bold">{s.nom}</td>
-                    <td className="p-3 font-mono text-xs text-slate-600">{s.code}</td>
-                    <td className="p-3">{s.description}</td>
-                    <td className="p-3 text-center font-medium">{s.userCount}</td>
-                    <td className="p-3">
-                      <div className="flex justify-center gap-2">
-                        <button type="button" onClick={() => { setEditingId(s.id); setForm({ nom: s.nom, code: s.code, description: s.description || "" }); setShowForm(true); }}
-                          className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold">
-                          {langue === "fr" ? "Modifier" : "تعديل"}
-                        </button>
-                        <button type="button" onClick={() => handleDelete(s.id)}
-                          className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold">
-                          {cur.btnSupprimer}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        {showArchived ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-sky-50 border-b border-sky-200 text-slate-700">
+                <tr>
+                  <th className="p-3 text-start">ID</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Nom" : "الاسم"}</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Code" : "الكود"}</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Description" : "الوصف"}</th>
+                  <th className="p-3 text-center">{langue === "fr" ? "Utilisateurs" : "المستخدمون"}</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Date archivage" : "تاريخ الأرشفة"}</th>
+                  <th className="p-3 text-center">{cur.tblActions}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingArchived ? (
+                  <tr><td colSpan={7} className="p-8 text-center text-slate-400 font-bold">{cur.loadingText}</td></tr>
+                ) : archivedServices.length === 0 ? (
+                  <tr><td colSpan={7} className="p-8 text-center text-slate-400 font-bold">{cur.aucunArchive}</td></tr>
+                ) : (
+                  archivedServices.map(s => (
+                    <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="p-3 font-mono">{s.id}</td>
+                      <td className="p-3 font-bold">{s.nom}</td>
+                      <td className="p-3 font-mono text-xs text-slate-600">{s.code}</td>
+                      <td className="p-3">{s.description}</td>
+                      <td className="p-3 text-center font-medium">{s.userCount}</td>
+                      <td className="p-3 text-slate-500">{(s as RbacService & { deletedAt?: string }).deletedAt ? new Date((s as RbacService & { deletedAt?: string }).deletedAt!).toLocaleDateString() : "-"}</td>
+                      <td className="p-3">
+                        <div className="flex justify-center gap-2">
+                          <button type="button" onClick={() => handleRestore(s.id)}
+                            className="px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold">
+                            {cur.restaurer}
+                          </button>
+                          <button type="button" onClick={() => handlePermanentDelete(s.id)}
+                            className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold">
+                            {langue === "fr" ? "Supprimer" : "حذف"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-sky-50 border-b border-sky-200 text-slate-700">
+                <tr>
+                  <th className="p-3 text-start">ID</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Nom" : "الاسم"}</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Code" : "الكود"}</th>
+                  <th className="p-3 text-start">{langue === "fr" ? "Description" : "الوصف"}</th>
+                  <th className="p-3 text-center">{langue === "fr" ? "Utilisateurs" : "المستخدمون"}</th>
+                  <th className="p-3 text-center">{cur.tblActions}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-bold">{cur.aucunDoc}</td></tr>
+                ) : (
+                  filtered.map(s => (
+                    <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="p-3 font-mono">{s.id}</td>
+                      <td className="p-3 font-bold">{s.nom}</td>
+                      <td className="p-3 font-mono text-xs text-slate-600">{s.code}</td>
+                      <td className="p-3">{s.description}</td>
+                      <td className="p-3 text-center font-medium">{s.userCount}</td>
+                      <td className="p-3">
+                        <div className="flex justify-center gap-2">
+                          <button type="button" onClick={() => { setEditingId(s.id); setForm({ nom: s.nom, code: s.code, description: s.description || "" }); setShowForm(true); }}
+                            className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold">
+                            {langue === "fr" ? "Modifier" : "تعديل"}
+                          </button>
+                          <button type="button" onClick={() => handleDelete(s.id)}
+                            className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold">
+                            {cur.btnSupprimer}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

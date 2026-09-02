@@ -141,7 +141,7 @@ namespace WebApplication1.Services
     public class PermissionResult
     {
         public bool IsAllowed { get; set; }
-        public string Reason { get; set; }
+        public string Reason { get; set; } = string.Empty;
 
         public static PermissionResult Allowed() => new PermissionResult { IsAllowed = true, Reason = string.Empty };
         public static PermissionResult Denied(string reason) => new PermissionResult { IsAllowed = false, Reason = reason };
@@ -155,12 +155,12 @@ namespace WebApplication1.Models
         public int Id { get; set; }
         public int UserId { get; set; }
         public int UtilisateurId { get; set; }
-        public string PermissionKey { get; set; }
-        public string Endpoint { get; set; }
-        public string Method { get; set; }
+        public string PermissionKey { get; set; } = string.Empty;
+        public string Endpoint { get; set; } = string.Empty;
+        public string Method { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; }
         public string? IpAddress { get; set; }
         public string? UserAgent { get; set; }
-        public Utilisateur Utilisateur { get; set; }
+        public Utilisateur? Utilisateur { get; set; }
     }
 }

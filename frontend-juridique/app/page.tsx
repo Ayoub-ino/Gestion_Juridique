@@ -151,6 +151,7 @@ export default function Home() {
   const [transferMessage, setTransferMessage] = useState("");
   const [transferMustReturn, setTransferMustReturn] = useState(false);
   const [transferTargetUserId, setTransferTargetUserId] = useState<number | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [pendingNotifications, setPendingNotifications] = useState(0);
   const [selectedDocIds, setSelectedDocIds] = useState<number[]>([]);
   const [transactionStats, setTransactionStats] = useState({ total: 0, acceptes: 0, refuses: 0, enAttente: 0, pourcentage: 0 });
@@ -1004,6 +1005,7 @@ export default function Home() {
     setTransferMessage("");
     setTransferMustReturn(false);
     setTransferTargetUserId(null);
+    setSelectedUserIds([]);
   };
 
   const confirmTransfer = async (services?: string[]) => {
@@ -1036,6 +1038,9 @@ export default function Home() {
       for (const svc of servicesToTransfer) {
         try {
           const isHistorical = historicalCodes.has(svc);
+          // Send all selected user IDs (multi-user routing)
+          // If no users selected, send null (route to all service users)
+          const userIdsToSend = selectedUserIds.length > 0 ? selectedUserIds : (transferTargetUserId ? [transferTargetUserId] : null);
           await api.post(
             "/api/Transfer",
             {
@@ -1044,7 +1049,8 @@ export default function Home() {
               serviceDestination: svc,
               message: transferMessage || null,
               doitRevenir: transferMustReturn,
-              targetUserId: transferTargetUserId || null,
+              targetUserId: userIdsToSend?.[0] || null,
+              targetUserIds: userIdsToSend,
               isHistoricalService: isHistorical,
             },
             token
@@ -1059,6 +1065,7 @@ export default function Home() {
             setSelectedServices([]);
             setTransferMessage("");
             setTransferTargetUserId(null);
+            setSelectedUserIds([]);
             return;
           }
           failCount++;
@@ -1091,6 +1098,7 @@ export default function Home() {
     setSelectedServices([]);
     setTransferMessage("");
     setTransferTargetUserId(null);
+    setSelectedUserIds([]);
   };
 
   const archiveSelection = async () => {
@@ -1631,8 +1639,9 @@ export default function Home() {
           setTransferMustReturn={setTransferMustReturn}
           langue={langue}
           cur={cur}
-          targetUserId={transferTargetUserId}
           setTargetUserId={setTransferTargetUserId}
+          selectedUserIds={selectedUserIds}
+          setSelectedUserIds={setSelectedUserIds}
         />
       )}
 
