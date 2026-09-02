@@ -1025,9 +1025,17 @@ export default function Home() {
     let failCount = 0;
     let lastError = "";
 
+    // Build a set of known Historique service codes for flagging
+    let historicalCodes: Set<string> = new Set();
+    try {
+      const histServices = await api.get<{ code: string }[]>("/api/historical-services", token);
+      historicalCodes = new Set(histServices.map((s) => s.code));
+    } catch { /* ignore */ }
+
     for (const doc of docsToProcess) {
       for (const svc of servicesToTransfer) {
         try {
+          const isHistorical = historicalCodes.has(svc);
           await api.post(
             "/api/Transfer",
             {
@@ -1037,6 +1045,7 @@ export default function Home() {
               message: transferMessage || null,
               doitRevenir: transferMustReturn,
               targetUserId: transferTargetUserId || null,
+              isHistoricalService: isHistorical,
             },
             token
           );

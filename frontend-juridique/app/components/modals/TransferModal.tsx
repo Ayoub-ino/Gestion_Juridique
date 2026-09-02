@@ -40,6 +40,23 @@ export function TransferModal({
 }: TransferModalProps) {
   const { token } = useAuth();
   const [serviceUsers, setServiceUsers] = useState<{ id: number; nom: string }[]>([]);
+  const [historicalServices, setHistoricalServices] = useState<{ id: number; code: string; nom: string; isActive: boolean }[]>([]);
+
+  // Fetch historical services on mount
+  useEffect(() => {
+    const fetchHistorical = async () => {
+      try {
+        const data = await api.get<{ id: number; code: string; nom: string; isActive: boolean }[]>(
+          "/api/historical-services",
+          token
+        );
+        setHistoricalServices(data.filter((s) => s.isActive));
+      } catch {
+        setHistoricalServices([]);
+      }
+    };
+    fetchHistorical();
+  }, [token]);
 
   // When selected services change, fetch users for each selected service
   useEffect(() => {
@@ -245,6 +262,42 @@ export function TransferModal({
                 );
               })}
             </div>
+
+            {/* Historique services section */}
+            {historicalServices.length > 0 && (
+              <div className="mt-3 border border-slate-200 rounded-lg p-2 bg-white">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold text-slate-500">
+                    {langue === "fr" ? "Services historiques (enregistrement uniquement)" : "الخدمات التاريخية (للتسجيل فقط)"}
+                  </span>
+                </div>
+                <p className="text-[9px] text-slate-400 mb-2">
+                  {langue === "fr"
+                    ? "Ces services n'ont pas d'utilisateurs actifs. Le transfert est automatiquement enregistré."
+                    : "هذه الخدمات ليس لها مستخدمون نشطون. يتم تسجيل التحويل تلقائياً."}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 ps-1">
+                  {historicalServices.map((svc) => (
+                    <label
+                      key={svc.code}
+                      className={`flex items-center gap-2 rounded-lg border p-2 text-xs font-bold cursor-pointer transition ${
+                        selectedServices.includes(svc.code)
+                          ? "bg-amber-500 text-white border-amber-500"
+                          : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedServices.includes(svc.code)}
+                        onChange={() => toggleService(svc.code)}
+                        className="w-3.5 h-3.5"
+                      />
+                      {svc.nom}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

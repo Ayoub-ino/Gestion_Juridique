@@ -32,5 +32,10 @@ namespace WebApplication1.Models
 
         // Previous document status before transfer (for rollback)
         public StatutDossier? StatutPrecedent { get; set; }
+
+        // Historique service support: stores the code of a historical service
+        // When set, this transaction was routed to a historical (record-only) entity
+        // that does not have login credentials — the transfer is auto-accepted.
+        public string? HistoricalServiceCode { get; set; }
     }
 }

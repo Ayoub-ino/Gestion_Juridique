@@ -62,10 +62,25 @@ namespace WebApplication1.Controllers
                 return NotFound(new { error = "Document non trouvé" });
 
             var serviceOrigine = document.ServiceActuel;
-            var serviceDestination = GetServiceEnum(dto.ServiceDestination);
+
+            // Check if the destination is a Historique (record-only) service
+            var isHistorical = dto.IsHistoricalService == true;
+            string? historicalServiceCode = isHistorical ? dto.ServiceDestination : null;
+
+            ServiceTribunal serviceDestination;
+            if (isHistorical)
+            {
+                // For historical services, use a placeholder destination
+                // The actual routing is tracked via HistoricalServiceCode
+                serviceDestination = ServiceTribunal.Archive;
+            }
+            else
+            {
+                serviceDestination = GetServiceEnum(dto.ServiceDestination);
+            }
 
             var destinations = new List<ServiceTribunal> { serviceDestination };
-            if (!dto.TargetUserId.HasValue && ParentChildren.TryGetValue(serviceDestination, out var children))
+            if (!isHistorical && !dto.TargetUserId.HasValue && ParentChildren.TryGetValue(serviceDestination, out var children))
             {
                 destinations.AddRange(children);
             }
@@ -74,6 +89,10 @@ namespace WebApplication1.Controllers
 
             foreach (var dest in destinations)
             {
+                // Historique services are record-only entities with no login —
+                // auto-accept the transfer immediately since no one can accept/refuse.
+                var statut = isHistorical ? StatutTransaction.Accepte : StatutTransaction.EnAttente;
+
                 var transaction = new Transaction
                 {
                     DocumentId = document.Id,
@@ -82,18 +101,28 @@ namespace WebApplication1.Controllers
                     DateTransaction = DateTime.Now,
                     Remarques = dto.Message,
                     UtilisateurId = userId.ToString(),
-                    Statut = StatutTransaction.EnAttente,
+                    Statut = statut,
                     DoitRevenir = dto.DoitRevenir,
                     TargetUserId = dto.TargetUserId,
-                    StatutPrecedent = document.StatutActuel
+                    StatutPrecedent = document.StatutActuel,
+                    HistoricalServiceCode = historicalServiceCode
                 };
                 _context.Transactions.Add(transaction);
                 await _context.SaveChangesAsync();
                 transactionIds.Add(transaction.Id);
             }
 
-            document.ServiceActuel = serviceDestination;
-            document.StatutActuel = StatutDossier.EnInstance;
+            // For historical services, keep document.ServiceActuel as-is (or set to Archive)
+            // since the document is not actually routed to a live service
+            if (!isHistorical)
+            {
+                document.ServiceActuel = serviceDestination;
+                document.StatutActuel = StatutDossier.EnInstance;
+            }
+            else
+            {
+                document.StatutActuel = StatutDossier.EnInstance;
+            }
 
             await _context.SaveChangesAsync();
 
@@ -145,5 +174,10 @@ namespace WebApplication1.Controllers
         public string? Message { get; set; }
         public bool DoitRevenir { get; set; }
         public int? TargetUserId { get; set; }
+        /// <summary>
+        /// When true, the destination is a Historical (record-only) service.
+        /// The transfer is auto-accepted since historical entities cannot log in.
+        /// </summary>
+        public bool? IsHistoricalService { get; set; }
     }
 }
