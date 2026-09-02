@@ -67,6 +67,8 @@ interface DocDetails {
 export function DetailModal({ doc, onClose, onTransfer, onSaved, cur, langue = "fr", token }: DetailModalProps) {
   const { hasPermission } = useAuth();
   const canAddNotes = hasPermission("ajouter_notes");
+  const canEdit = hasPermission("creer_modifier");
+  const canTransferDoc = hasPermission("transferer");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [docDetails, setDocDetails] = useState<DocDetails | null>(null);
@@ -473,7 +475,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, cur, langue = "
           {/* Action Buttons */}
           <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-between">
             <div className="flex gap-2">
-              {onTransfer && doc.transmissible !== "Non" && (
+              {onTransfer && canTransferDoc && doc.transmissible !== "Non" && (
                 <button
                   type="button"
                   onClick={() => { onClose(); onTransfer(doc); }}
@@ -504,6 +506,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, cur, langue = "
                 </>
               ) : (
                 <>
+                  {canEdit && (
                   <button
                     type="button"
                     onClick={() => setEditMode(true)}
@@ -511,6 +514,7 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, cur, langue = "
                   >
                     {cur.modifierLabel}
                   </button>
+                  )}
                   <button
                     type="button"
                     onClick={onClose}

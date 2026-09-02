@@ -79,6 +79,8 @@ type Tab = "info" | "notes" | "historique";
 export function WorkspaceModal({ docId, onClose, token, langue, cur, onTransfer }: Props) {
   const { hasPermission } = useAuth();
   const canAddNotes = hasPermission("ajouter_notes");
+  const canEdit = hasPermission("creer_modifier");
+  const canTransferDoc = hasPermission("transferer");
   const [tab, setTab] = useState<Tab>("info");
   const [doc, setDoc] = useState<WorkspaceDoc | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -258,7 +260,7 @@ export function WorkspaceModal({ docId, onClose, token, langue, cur, onTransfer 
             )}
           </div>
           <div className="flex items-center gap-2">
-            {!editMode && (
+            {!editMode && canEdit && (
               <button onClick={startEdit} className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-[11px] font-bold border border-amber-200 hover:bg-amber-100">
                 {cur.modifierLabel}
               </button>
@@ -273,7 +275,7 @@ export function WorkspaceModal({ docId, onClose, token, langue, cur, onTransfer 
                 </button>
               </>
             )}
-            {onTransfer && doc && doc.Transmissible !== "Non" && (
+            {onTransfer && canTransferDoc && doc && doc.Transmissible !== "Non" && (
               <button
                 onClick={() => onTransfer(doc as unknown as CourrierSimule)}
                 className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-bold border border-indigo-200 hover:bg-indigo-100"
