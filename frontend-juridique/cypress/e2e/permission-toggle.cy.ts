@@ -7,6 +7,15 @@
 describe("9. Permission Toggle Lifecycle", () => {
   const API_URL = Cypress.env("API_URL") || "http://localhost:5200";
 
+  // Re-seed the database before each test to ensure clean permission state
+  beforeEach(() => {
+    login("admin", "admin123").then((t) => {
+      return authed(t, "POST", `${API_URL}/api/seed/run`).then((r) => {
+        expect(r.status).to.eq(200);
+      });
+    });
+  });
+
   /** Login via API and return the JWT token */
   const login = (user: string, pass: string) =>
     cy
@@ -83,10 +92,12 @@ describe("9. Permission Toggle Lifecycle", () => {
     serviceId: number,
     snapshot: { key: string; enabled: boolean }[],
   ) => {
-    const restore = snapshot.map((p) => ({
-      permissionKey: p.key,
-      enabled: p.enabled,
-    }));
+    const restore = snapshot
+      .filter((p) => p.key && p.key.trim() !== "")
+      .map((p) => ({
+        permissionKey: p.key,
+        enabled: p.enabled,
+      }));
     return authed(
       adminToken,
       "PUT",
@@ -643,7 +654,7 @@ describe("9. Permission Toggle Lifecycle", () => {
         cy.get("aside", { timeout: 10000 }).should("exist");
 
         cy.get("aside").within(() => {
-          cy.contains(/Mes entités|وثائقي|وملفاتي/).click();
+          cy.contains(/Mes entités|وثائقي|ملفاتي/).click();
         });
         cy.wait(1000);
 
@@ -663,7 +674,7 @@ describe("9. Permission Toggle Lifecycle", () => {
         cy.get("aside", { timeout: 10000 }).should("exist");
 
         cy.get("aside").within(() => {
-          cy.contains(/Mes entités|وثائقي|وملفاتي/).click();
+          cy.contains(/Mes entités|وثائقي|ملفاتي/).click();
         });
         cy.wait(1000);
 

@@ -108,7 +108,14 @@ namespace WebApplication1.Services
 
             _context.ServicePermissions.RemoveRange(existing);
 
-            foreach (var update in updates.Where(u => u.Enabled))
+            // Only insert permissions with non-empty keys to avoid unique constraint violations
+            var enabledUpdates = updates
+                .Where(u => u.Enabled && !string.IsNullOrWhiteSpace(u.PermissionKey))
+                .GroupBy(u => u.PermissionKey)  // deduplicate by key
+                .Select(g => g.First())
+                .ToList();
+
+            foreach (var update in enabledUpdates)
             {
                 _context.ServicePermissions.Add(new ServicePermission
                 {
