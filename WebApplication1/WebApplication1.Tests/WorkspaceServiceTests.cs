@@ -84,7 +84,7 @@ namespace WebApplication1.Tests
             dynamic data = result.Data!;
             Assert.Equal(1, (int)data.modifications); // only NumeroOrdre tracked
 
-            var docAfter = (CourrierAdministratif)await ctx.Documents.FindAsync(doc.Id);
+            var docAfter = (CourrierAdministratif)(await ctx.Documents.FindAsync(doc.Id))!;
             Assert.Equal("NEW", docAfter!.NumeroOrdre);
 
             var mod = await ctx.DocumentModifications.SingleAsync();

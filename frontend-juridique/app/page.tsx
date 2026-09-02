@@ -1197,7 +1197,6 @@ export default function Home() {
         canSeeEntrantJuridique={canSeeEntrantJuridique}
         canSeeSortantNormal={canSeeSortantNormal}
         canSeeSortantDemande={canSeeSortantDemande}
-        isAdmin={isAdmin}
         canManageUsers={canManageUsers}
         canSeeAdminSection={canSeeAdminSection}
         canSeeServicesAdmin={canSeeServicesAdmin}

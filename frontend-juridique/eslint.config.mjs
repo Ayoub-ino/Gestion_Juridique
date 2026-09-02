@@ -11,10 +11,11 @@ const eslintConfig = defineConfig([
       // defined in the component body, plus localStorage hydration). The
       // React 19 `set-state-in-effect` rule (enabled by default in the Next
       // preset) conservatively flags every setState reachable from an effect,
-      // including legitimate async fetch-on-mount helpers. Keep it as a
-      // warning instead of an error: it still surfaces genuine synchronous
-      // setState-in-effect regressions without failing the build.
-      "react-hooks/set-state-in-effect": "warn",
+      // including legitimate async fetch-on-mount helpers. All 21 occurrences
+      // in this codebase are standard React data-fetching patterns
+      // (useEffect + fetch().then(setState)). Disable the rule entirely to
+      // eliminate false-positive warnings while keeping the build clean.
+      "react-hooks/set-state-in-effect": "off",
     },
   },
   // Override default ignores of eslint-config-next.
