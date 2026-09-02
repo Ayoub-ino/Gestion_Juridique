@@ -235,6 +235,26 @@ export default function Home() {
     (vueActive === "sortant-normal" && canCreateSortantNormal) ||
     (vueActive === "sortant-demande" && canCreateSortantDemande);
 
+  // Route-level protection: redirect to dashboard if user navigates to a hidden view
+  useEffect(() => {
+    const viewPermissionMap: Record<string, boolean> = {
+      "admin-utilisateurs": canManageUsers,
+      "admin-services": canSeeServicesAdmin,
+      "admin-permissions": canSeePermissionsAdmin,
+      "admin-equipements": canSeeEquipementsAdmin,
+      "admin-services-historiques": canSeeHistoriquesAdmin,
+      "admin-listes": canSeeListesAdmin,
+      "entrant-admin": canSeeEntrantAdmin,
+      "entrant-juridique": canSeeEntrantJuridique,
+      "recherche-dossiers": canSearchDossiers,
+      "transactions": canViewTransactions,
+      "archives": canViewArchives,
+    };
+    if (viewPermissionMap[vueActive] === false) {
+      setVueActive("dashboard");
+    }
+  }, [vueActive, canManageUsers, canSeeServicesAdmin, canSeePermissionsAdmin, canSeeEquipementsAdmin, canSeeHistoriquesAdmin, canSeeListesAdmin, canSeeEntrantAdmin, canSeeEntrantJuridique, canSearchDossiers, canViewTransactions, canViewArchives]);
+
   const displayedCourriers = listeCourriers.map((doc) => ({ ...doc, ...(docOverrides[doc.id] || {}) }));
   const visibleCourriers = displayedCourriers.filter((doc) => !hiddenDocKeys.includes(getDocKey(doc)) && !hiddenDocKeys.includes(String(doc.id)));
 
@@ -1241,6 +1261,8 @@ export default function Home() {
               onTransferDoc={openTransfer}
               onDeleteDoc={handleDelete}
               canDelete={canDelete}
+              canTransfer={canTransfer}
+              canModify={canCreateSortantNormal}
               onOpenDoc={(doc: CourrierSimule) => setWorkspaceDocId(doc.id)}
               onMarquerEnvoye={(id: number) => changerStatutSortant(id, "Envoye")}
               onMarquerAttente={(id: number) => changerStatutSortant(id, "EnAttente")}
@@ -1285,6 +1307,9 @@ export default function Home() {
               onDownloadTemplate={() => downloadExcelTemplate(langue)}
               onImportExcel={handleImportExcel}
               getServiceLabel={getServiceLabel}
+              canTransfer={canTransfer}
+              canArchive={canArchive}
+              canDelete={canDelete}
             />
           )}
 
@@ -1537,6 +1562,8 @@ export default function Home() {
                 onTransfer={openTransfer}
                 onDelete={handleDelete}
                 canDelete={canDelete}
+                canTransfer={canTransfer}
+                canModify={canCreateSortantNormal}
                 onMarquerEnvoye={(id) => changerStatutSortant(id, "Envoye")}
                 onMarquerAttente={(id) => changerStatutSortant(id, "EnAttente")}
                 onAnnuler={(id) => changerStatutSortant(id, "Annule")}

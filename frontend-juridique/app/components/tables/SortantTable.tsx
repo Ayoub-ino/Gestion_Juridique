@@ -16,6 +16,8 @@ interface SortantTableProps {
   onDelete: (doc: CourrierSimule) => void;
   onOpen?: (doc: CourrierSimule) => void;
   canDelete?: boolean;
+  canTransfer?: boolean;
+  canModify?: boolean;
   onMarquerEnvoye: (id: number) => void;
   onMarquerAttente: (id: number) => void;
   onAnnuler: (id: number) => void;
@@ -32,6 +34,8 @@ export function SortantTable({
   onTransfer,
   onDelete,
   canDelete = true,
+  canTransfer = true,
+  canModify = true,
   onMarquerEnvoye,
   onMarquerAttente,
   onAnnuler,
@@ -125,16 +129,18 @@ export function SortantTable({
                     </td>
                     <td className="p-3 text-center space-x-1 whitespace-nowrap">
                       <button type="button" onClick={() => onView(doc)} className="text-blue-600 hover:text-blue-800 font-bold px-2 py-1 rounded hover:bg-blue-50">{cur.btnVoir}</button>
-                      {statutBrut !== "Envoye" && statutBrut !== "Annule" && (
+                      {canModify && statutBrut !== "Envoye" && statutBrut !== "Annule" && (
                         <>
                           <button onClick={() => onMarquerEnvoye(doc.id)} className="text-emerald-600 hover:text-emerald-800 font-bold px-2 py-1 rounded hover:bg-emerald-50">{cur.marquerEnvoye}</button>
                           <button onClick={() => onMarquerAttente(doc.id)} className="text-yellow-600 hover:text-yellow-800 font-bold px-2 py-1 rounded hover:bg-yellow-50">{cur.marquerAttente}</button>
                         </>
                       )}
-                      {statutBrut !== "Annule" && (
+                      {canModify && statutBrut !== "Annule" && (
                         <button onClick={() => onAnnuler(doc.id)} className="text-red-600 hover:text-red-800 font-bold px-2 py-1 rounded hover:bg-red-50">{cur.annulerCourrier}</button>
                       )}
-                      <button onClick={() => onTransfer(doc)} className="text-slate-600 hover:text-slate-800 font-bold px-2 py-1 rounded hover:bg-slate-50">{cur.btnSuivant}</button>
+                      {canTransfer && (
+                        <button onClick={() => onTransfer(doc)} className="text-slate-600 hover:text-slate-800 font-bold px-2 py-1 rounded hover:bg-slate-50">{cur.btnSuivant}</button>
+                      )}
                       {canDelete && (
                         <button onClick={() => onDelete(doc)} className="text-red-600 hover:text-red-800 font-bold px-2 py-1 rounded hover:bg-red-50">{cur.btnSupprimer}</button>
                       )}

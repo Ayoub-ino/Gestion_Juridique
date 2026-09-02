@@ -29,6 +29,9 @@ interface Props {
   onDownloadTemplate: () => void;
   onImportExcel: (e: React.ChangeEvent<HTMLInputElement>) => void;
   getServiceLabel: (service: string, langue: Langue) => string;
+  canTransfer?: boolean;
+  canArchive?: boolean;
+  canDelete?: boolean;
 }
 
 export function MesEntitesView({
@@ -54,6 +57,9 @@ export function MesEntitesView({
   onDownloadTemplate,
   onImportExcel,
   getServiceLabel,
+  canTransfer = true,
+  canArchive = true,
+  canDelete = true,
 }: Props) {
   const { hasPermission } = useAuth();
   const canImport = hasPermission("creer_courrier_admin") || hasPermission("creer_courrier_juridique");
@@ -115,20 +121,24 @@ export function MesEntitesView({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onBatchTransferSelected}
-              className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold"
-            >
-              {cur.transfererSelection}
-            </button>
-            <button
-              type="button"
-              onClick={onArchiveSelection}
-              className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold"
-            >
-              {cur.archiverSelection}
-            </button>
+            {canTransfer && (
+              <button
+                type="button"
+                onClick={onBatchTransferSelected}
+                className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold"
+              >
+                {cur.transfererSelection}
+              </button>
+            )}
+            {canArchive && (
+              <button
+                type="button"
+                onClick={onArchiveSelection}
+                className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold"
+              >
+                {cur.archiverSelection}
+              </button>
+            )}
           </div>
         </div>
 
@@ -194,7 +204,7 @@ export function MesEntitesView({
                         >
                           {cur.btnVoir}
                         </button>
-                        {doc.transmissible !== "Non" && (
+                        {doc.transmissible !== "Non" && canTransfer && (
                           <button
                             type="button"
                             onClick={() => onTransfer(doc)}
@@ -203,13 +213,15 @@ export function MesEntitesView({
                             {cur.btnSuivant}
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => onDelete(doc)}
-                          className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold"
-                        >
-                          {cur.btnSupprimer}
-                        </button>
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => onDelete(doc)}
+                            className="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-bold"
+                          >
+                            {cur.btnSupprimer}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

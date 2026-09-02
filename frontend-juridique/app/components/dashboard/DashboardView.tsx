@@ -28,6 +28,8 @@ interface DashboardViewProps {
   onTransferDoc: (doc: CourrierSimule) => void;
   onDeleteDoc: (doc: CourrierSimule) => void;
   canDelete?: boolean;
+  canTransfer?: boolean;
+  canModify?: boolean;
   onMarquerEnvoye: (id: number) => void;
   onMarquerAttente: (id: number) => void;
   onAnnuler: (id: number) => void;
@@ -63,6 +65,8 @@ export function DashboardView({
   onTransferDoc,
   onDeleteDoc,
   canDelete = true,
+  canTransfer = true,
+  canModify = true,
   onMarquerEnvoye,
   onMarquerAttente,
   onAnnuler,
@@ -203,6 +207,8 @@ export function DashboardView({
         onDelete={onDeleteDoc}
         onOpen={onOpenDoc}
         canDelete={canDelete}
+        canTransfer={canTransfer}
+        canModify={canModify}
         onMarquerEnvoye={onMarquerEnvoye}
         onMarquerAttente={onMarquerAttente}
         onAnnuler={onAnnuler}
