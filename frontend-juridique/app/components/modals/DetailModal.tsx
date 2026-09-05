@@ -80,6 +80,37 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, cur, langue = "
   const [savingNote, setSavingNote] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
+  const canDownload = hasPermission("telecharger_fichiers");
+
+  // Determine file type category for preview routing
+  const getFileCategory = (filePath: string): "pdf" | "image" | "office" | "unsupported" => {
+    const ext = filePath.split(".").pop()?.toLowerCase() || "";
+    if (ext === "pdf") return "pdf";
+    if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) return "image";
+    if (["docx", "doc", "xlsx", "xls"].includes(ext)) return "office";
+    return "unsupported";
+  };
+
+  // Build the correct preview URL based on file type
+  const getPreviewUrl = (filePath: string): string => {
+    const category = getFileCategory(filePath);
+    if (category === "pdf" || category === "image") {
+      // PDF and images: serve inline directly
+      return `${API_BASE_URL}/api/FileUpload/${filePath}`;
+    }
+    if (category === "office") {
+      // DOCX/XLSX: use server-side HTML conversion
+      return `${API_BASE_URL}/api/FileUpload/preview/${filePath}`;
+    }
+    // Unsupported: use preview endpoint which returns error page
+    return `${API_BASE_URL}/api/FileUpload/preview/${filePath}`;
+  };
+
+  // Build the download URL
+  const getDownloadUrl = (filePath: string): string => {
+    return `${API_BASE_URL}/api/FileUpload/download/${filePath}`;
+  };
 
   const getServiceLabel = (value: string) => {
     for (const group of SERVICE_GROUPS) {
@@ -346,42 +377,76 @@ export function DetailModal({ doc, onClose, onTransfer, onSaved, cur, langue = "
                     <div className="flex items-center gap-2 mb-2">
                       <button
                         type="button"
-                        onClick={() => setShowPreview(!showPreview)}
+                        onClick={() => { setShowPreview(!showPreview); setPreviewError(false); }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${showPreview ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"}`}
                       >
-                        {showPreview ? (cur.fermer) : (cur.btnVoir)}
+                        👁 {showPreview ? (cur.fermer) : (cur.btnVoir)}
                       </button>
-                      <a
-                        href={`${API_BASE_URL}/api/FileUpload/${docDetails.filePath}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold hover:bg-amber-100 transition"
-                      >
-                        📎 {cur.btnVoir}
-                      </a>
+                      {canDownload ? (
+                        <a
+                          href={getDownloadUrl(docDetails.filePath)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold hover:bg-emerald-100 transition"
+                        >
+                          📥 {cur.telecharger}
+                        </a>
+                      ) : (
+                        <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 text-xs font-bold cursor-not-allowed" title={cur.permissionRefusee}>
+                          📥 {cur.telecharger}
+                        </span>
+                      )}
                     </div>
                     {showPreview && (
                       <div className="border border-slate-200 dark:border-slate-600 rounded-lg overflow-hidden">
-                        {docDetails.filePath.endsWith(".pdf") && (
-                          <iframe
-                            src={`${API_BASE_URL}/api/FileUpload/${docDetails.filePath}`}
-                            className="w-full h-[500px]"
-                            title="Preview PDF"
-                          />
-                        )}
-                        {(docDetails.filePath.endsWith(".docx") || docDetails.filePath.endsWith(".doc")) && (
-                          <iframe
-                            src={`${API_BASE_URL}/api/FileUpload/preview/${docDetails.filePath}`}
-                            className="w-full h-[500px]"
-                            title="Preview Word"
-                          />
-                        )}
-                        {(docDetails.filePath.endsWith(".xlsx") || docDetails.filePath.endsWith(".xls")) && (
-                          <iframe
-                            src={`${API_BASE_URL}/api/FileUpload/preview/${docDetails.filePath}`}
-                            className="w-full h-[500px]"
-                            title="Preview Excel"
-                          />
+                        {previewError ? (
+                          <div className="p-6 text-center">
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
+                              {langue === "fr" ? "Aperçu non disponible pour ce format" : "معاينة غير متاحة لهذا التنسيق"}
+                            </p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500">
+                              {langue === "fr" ? "Utilisez le bouton Télécharger pour sauvegarder le fichier." : "استخدم زر التحميل لحفظ الملف."}
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            {/* PDF: inline browser preview */}
+                            {getFileCategory(docDetails.filePath) === "pdf" && (
+                              <iframe
+                                src={getPreviewUrl(docDetails.filePath)}
+                                className="w-full h-[500px]"
+                                title="Preview PDF"
+                                onError={() => setPreviewError(true)}
+                              />
+                            )}
+                            {/* Images: direct display */}
+                            {getFileCategory(docDetails.filePath) === "image" && (
+                              <div className="flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 min-h-[200px]">
+                                <img
+                                  src={getPreviewUrl(docDetails.filePath)}
+                                  alt={docDetails.Objet || "Preview"}
+                                  className="max-w-full max-h-[500px] object-contain rounded"
+                                  onError={() => setPreviewError(true)}
+                                />
+                              </div>
+                            )}
+                            {/* DOCX/XLSX: server-side HTML conversion */}
+                            {getFileCategory(docDetails.filePath) === "office" && (
+                              <iframe
+                                src={getPreviewUrl(docDetails.filePath)}
+                                className="w-full h-[500px]"
+                                title="Preview Document"
+                                onError={() => setPreviewError(true)}
+                              />
+                            )}
+                            {/* Unsupported: show fallback */}
+                            {getFileCategory(docDetails.filePath) === "unsupported" && (
+                              <iframe
+                                src={getPreviewUrl(docDetails.filePath)}
+                                className="w-full h-[500px]"
+                                title="Preview"
+                                onError={() => setPreviewError(true)}
+                              />
+                            )}
+                          </>
                         )}
                       </div>
                     )}

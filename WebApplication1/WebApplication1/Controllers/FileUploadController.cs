@@ -99,10 +99,10 @@ namespace WebApplication1.Controllers
         }
 
         // GET api/FileUpload/{storedName}
+        // Serves files inline for browser preview with streaming and caching
         [HttpGet("{storedName}")]
-        public IActionResult Download(string storedName)
+        public async Task<IActionResult> ServeInline(string storedName)
         {
-            // Security: sanitize path to prevent directory traversal
             var safeName = Path.GetFileName(storedName);
             var folder = GetUploadsFolder();
             var filePath = Path.Combine(folder, safeName);
@@ -110,7 +110,67 @@ namespace WebApplication1.Controllers
                 return NotFound(new { error = "Fichier non trouvé" });
 
             var ext = Path.GetExtension(safeName).ToLower();
-            var contentType = ext switch
+            var contentType = GetContentType(ext);
+            var fileInfo = new FileInfo(filePath);
+            var lastModified = fileInfo.LastWriteTimeUtc;
+            var etag = $"\"{fileInfo.LastWriteTimeUtc.Ticks}-{fileInfo.Length}\"";
+
+            // Check If-None-Match (ETag caching)
+            var ifNoneMatch = Request.Headers["If-None-Match"].FirstOrDefault();
+            if (ifNoneMatch == etag)
+                return StatusCode(304);
+
+            // Check If-Modified-Since
+            var ifModifiedSince = Request.Headers["If-Modified-Since"].FirstOrDefault();
+            if (DateTime.TryParse(ifModifiedSince, out var modDate) && modDate >= lastModified)
+                return StatusCode(304);
+
+            Response.Headers["Cache-Control"] = "private, max-age=3600";
+            Response.Headers["ETag"] = etag;
+            Response.Headers["Last-Modified"] = lastModified.ToString("R");
+
+            // Stream file efficiently with 8KB buffer
+            var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, true);
+            return File(stream, contentType);
+        }
+
+        // GET api/FileUpload/download/{storedName}
+        // Forces browser download with Content-Disposition: attachment header
+        [HttpGet("download/{storedName}")]
+        public async Task<IActionResult> Download(string storedName)
+        {
+            var safeName = Path.GetFileName(storedName);
+            var folder = GetUploadsFolder();
+            var filePath = Path.Combine(folder, safeName);
+            if (!System.IO.File.Exists(filePath))
+                return NotFound(new { error = "Fichier non trouvé" });
+
+            var ext = Path.GetExtension(safeName).ToLower();
+            var contentType = GetContentType(ext);
+            var fileInfo = new FileInfo(filePath);
+
+            // Extract original filename from stored name (remove timestamp+GUID prefix)
+            var originalName = safeName;
+            var underscoreIdx = safeName.IndexOf('_');
+            if (underscoreIdx > 0)
+            {
+                var afterTimestamp = safeName.Substring(underscoreIdx + 1);
+                // Skip the GUID part (32 hex chars) and keep the rest as filename
+                if (afterTimestamp.Length > 33)
+                    originalName = afterTimestamp.Substring(32);
+            }
+
+            Response.Headers["Cache-Control"] = "no-store";
+            Response.Headers["Content-Disposition"] = $"attachment; filename=\"{originalName}\"; filename*=UTF-8''{Uri.EscapeDataString(originalName)}";
+
+            // Stream file directly to response for zero memory overhead
+            var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, true);
+            return File(stream, contentType, originalName);
+        }
+
+        private static string GetContentType(string ext)
+        {
+            return ext switch
             {
                 ".pdf" => "application/pdf",
                 ".doc" => "application/msword",
@@ -120,19 +180,16 @@ namespace WebApplication1.Controllers
                 ".txt" => "text/plain",
                 ".csv" => "text/csv",
                 ".png" => "image/png",
-                ".jpg" => "image/jpeg",
-                ".jpeg" => "image/jpeg",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                ".webp" => "image/webp",
                 _ => "application/octet-stream"
             };
-
-            var fileBytes = System.IO.File.ReadAllBytes(filePath);
-            // For PDF: serve inline (no download name). For others: also inline.
-            return File(fileBytes, contentType);
         }
 
         // GET api/FileUpload/preview/{storedName}
         [HttpGet("preview/{storedName}")]
-        public IActionResult Preview(string storedName)
+        public async Task<IActionResult> Preview(string storedName)
         {
             // Security: sanitize path to prevent directory traversal
             var safeName = Path.GetFileName(storedName);
@@ -142,7 +199,7 @@ namespace WebApplication1.Controllers
                 return NotFound(new { error = "Fichier non trouvé" });
 
             var ext = Path.GetExtension(safeName).ToLower();
-            var fileBytes = System.IO.File.ReadAllBytes(filePath);
+            var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
             var headerUtf8 = Encoding.UTF8.GetString(fileBytes, 0, Math.Min(fileBytes.Length, 100)).TrimStart('\uFEFF', ' ', '\t', '\r', '\n');
 
             // Detect HTML content saved with office extension (with or without BOM)
@@ -270,7 +327,23 @@ namespace WebApplication1.Controllers
                 }
             }
 
-            return BadRequest(new { error = "Format non supporté pour l'aperçu côté serveur" });
+            // PDF and images: serve directly for inline browser rendering
+            if (ext == ".pdf" || ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".webp")
+            {
+                var contentType = ext switch
+                {
+                    ".pdf" => "application/pdf",
+                    ".png" => "image/png",
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".gif" => "image/gif",
+                    ".webp" => "image/webp",
+                    _ => "application/octet-stream"
+                };
+                return File(fileBytes, contentType);
+            }
+
+            // Unsupported format: show download fallback
+            return Content(BuildErrorHtml($"Format {ext} non supporté pour l'aperçu. Utilisez le bouton Télécharger pour sauvegarder le fichier."), "text/html", Encoding.UTF8);
         }
 
         private string ExtractTextFromDoc(byte[] fileBytes)

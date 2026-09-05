@@ -57,9 +57,13 @@ namespace WebApplication1.Controllers
         }
 
         [HttpPut("{id}/annuler-transition")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> AnnulerTransition(int id) =>
-            Map(await _service.AnnulerTransitionAsync(id));
+        [RequirePermission("annuler_transfert")]
+        public async Task<IActionResult> AnnulerTransition(int id)
+        {
+            if (!ServiceMapper.TryParseUserId(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+                return Unauthorized();
+            return Map(await _service.AnnulerTransitionAsync(id, userId));
+        }
 
         [HttpGet("stats")]
         public async Task<IActionResult> GetStats()

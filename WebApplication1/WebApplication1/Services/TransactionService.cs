@@ -34,18 +34,17 @@ namespace WebApplication1.Services
             var user = await LoadUserOrNullAsync(userId);
             if (user == null) return ServiceResult.Fail(401, "Utilisateur non trouvé");
 
-            var isAdminLike = IsAdminLike(user);
+            // Admin users do not receive operational notifications
+            if (IsAdminLike(user))
+                return ServiceResult.Ok(new List<object>());
+
             var userServiceEnum = ServiceMapper.MapToServiceEnum(user.Service ?? "");
 
             var query = _context.Transactions
                 .Include(t => t.Document)
-                .Where(t => t.Statut == StatutTransaction.EnAttente);
-
-            if (!isAdminLike)
-            {
-                query = query.Where(t => t.ServiceDestination == userServiceEnum
+                .Where(t => t.Statut == StatutTransaction.EnAttente
+                    && t.ServiceDestination == userServiceEnum
                     && (t.TargetUserId == null || t.TargetUserId == userId));
-            }
 
             var transactions = await query
                 .OrderByDescending(t => t.DateTransaction)
@@ -207,8 +206,11 @@ namespace WebApplication1.Services
             return ServiceResult.Ok(new { message = "Transaction refusée" });
         }
 
-        public async Task<ServiceResult> AnnulerTransitionAsync(int id)
+        public async Task<ServiceResult> AnnulerTransitionAsync(int id, int userId)
         {
+            var user = await LoadUserOrNullAsync(userId);
+            if (user == null) return ServiceResult.Fail(401, "Utilisateur non trouvé");
+
             var transaction = await _context.Transactions
                 .Include(t => t.Document)
                 .FirstOrDefaultAsync(t => t.Id == id);
@@ -216,8 +218,18 @@ namespace WebApplication1.Services
             if (transaction == null)
                 return ServiceResult.Fail(404, "Transaction non trouvée");
 
-            if (transaction.Statut != StatutTransaction.Accepte)
-                return ServiceResult.Fail(400, "Seules les transactions acceptées peuvent être annulées");
+            var isAdmin = IsAdminLike(user);
+            var userEnum = ServiceMapper.MapToServiceEnum(user.Service ?? "");
+
+            // Standard users: can only cancel 'EnAttente' transactions they sent
+            // Admin users: can cancel any transaction at any stage
+            if (!isAdmin)
+            {
+                if (transaction.Statut != StatutTransaction.EnAttente)
+                    return ServiceResult.Fail(400, "Seules les transactions en attente peuvent être annulées par un utilisateur standard");
+                if (transaction.ServiceOrigine != userEnum)
+                    return ServiceResult.Fail(403, "Vous ne pouvez annuler que les transferts que vous avez envoyés");
+            }
 
             // Find all transactions for the same document that happened at or after this one and are not already annulled
             var transactionsToAnnul = await _context.Transactions
@@ -232,7 +244,7 @@ namespace WebApplication1.Services
                 tx.Statut = StatutTransaction.Annule;
             }
 
-            // Restore the document
+            // Restore the document to the original service
             var document = transaction.Document;
             document.ServiceActuel = transaction.ServiceOrigine;
             document.StatutActuel = transaction.StatutPrecedent ?? StatutDossier.EnCours;
@@ -300,18 +312,16 @@ namespace WebApplication1.Services
             var user = await LoadUserOrNullAsync(userId);
             if (user == null) return ServiceResult.Ok(new { count = 0 });
 
-            var isAdminLike = IsAdminLike(user);
+            // Admin users do not receive operational notifications
+            if (IsAdminLike(user))
+                return ServiceResult.Ok(new { count = 0 });
+
             var userServiceEnum = ServiceMapper.MapToServiceEnum(user.Service ?? "");
 
-            var countQuery = _context.Transactions
-                .Where(t => t.Statut == StatutTransaction.EnAttente);
-
-            if (!isAdminLike)
-            {
-                countQuery = countQuery.Where(t => t.ServiceDestination == userServiceEnum);
-            }
-
-            var count = await countQuery.CountAsync();
+            var count = await _context.Transactions
+                .Where(t => t.Statut == StatutTransaction.EnAttente
+                    && t.ServiceDestination == userServiceEnum)
+                .CountAsync();
 
             return ServiceResult.Ok(new { count });
         }
@@ -321,17 +331,17 @@ namespace WebApplication1.Services
             var user = await LoadUserOrNullAsync(userId);
             if (user == null) return ServiceResult.Fail(401, "Utilisateur non trouvé");
 
-            var isAdminLike = IsAdminLike(user);
+            // Admin users do not receive operational notifications
+            if (IsAdminLike(user))
+                return ServiceResult.Ok(new List<object>());
+
             var userServiceEnum = ServiceMapper.MapToServiceEnum(user.Service ?? "");
 
             var query = _context.Transactions
                 .Include(t => t.Document)
-                .Where(t => t.DoitRevenir && (t.Statut == StatutTransaction.Refuse || t.Statut == StatutTransaction.EnAttente));
-
-            if (!isAdminLike)
-            {
-                query = query.Where(t => t.ServiceDestination == userServiceEnum);
-            }
+                .Where(t => t.DoitRevenir
+                    && (t.Statut == StatutTransaction.Refuse || t.Statut == StatutTransaction.EnAttente)
+                    && t.ServiceDestination == userServiceEnum);
 
             var transactions = await query
                 .OrderByDescending(t => t.DateTransaction)

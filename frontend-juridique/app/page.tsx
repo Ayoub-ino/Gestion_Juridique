@@ -409,7 +409,6 @@ export default function Home() {
   const docsArchives = visibleCourriers.filter((doc: CourrierSimule) => normalizeStatus(doc.statut) === "Archive").length + localRetraits.length;
   const activityCards = [
     { title: cur.notifications, value: transactionStats.enAttente, view: "transactions" as VueActive, accent: "bg-amber-500" },
-    { title: cur.demandesAttente, value: sortantDocs.length, view: "transactions" as VueActive, accent: "bg-sky-500" },
     { title: cur.transactionsTraitees, value: transactionStats.acceptes, view: "transactions" as VueActive, accent: "bg-emerald-500" },
     { title: cur.docsRetourner, value: transactionStats.refuses, view: "transactions" as VueActive, accent: "bg-indigo-500" }
   ];

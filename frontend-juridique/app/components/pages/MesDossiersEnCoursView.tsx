@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import { Langue, CourrierSimule } from "@/app/types";
 import { exportRows, ExportFormat } from "@/lib/exportImport";
 import { ExportButtons } from "@/app/components/common/ExportButtons";
+import { USER_SERVICE_TO_ENUM } from "@/lib/constants";
 
 interface Props {
   langue: Langue;
@@ -35,25 +36,25 @@ export function MesDossiersEnCoursView({
   const [dizaineRange, setDizaineRange] = useState(0);
   const [cinquantaineRange, setCinquantaineRange] = useState(0);
 
+  // Map RBAC service code to ServiceTribunal enum for comparison with serviceActuelKey
+  const userServiceEnum = USER_SERVICE_TO_ENUM[userService] || userService;
+
   // Filter documents that are currently in user's service OR specifically transferred to this user
-  // AND not yet transferred to another service (at instant T)
   const mesDossiers = useMemo(() => {
     return visibleCourriers.filter((doc) => {
-      // Check if document is in user's service
-      const inMyService = doc.serviceActuelKey === userService || doc.serviceActuel === userService;
+      // Check if document is in user's active service (using enum mapping)
+      const inMyService = doc.serviceActuelKey === userServiceEnum
+        || doc.serviceActuelKey === userService
+        || doc.serviceActuel === userServiceEnum
+        || doc.serviceActuel === userService;
       
       // Check if document was specifically transferred to this user (TargetUserId)
       const transferredToMe = doc.targetUserId === userId;
       
       // Document must be in my service OR transferred to me
-      if (!inMyService && !transferredToMe) return false;
-      
-      // Must not be transferred to another service (at instant T)
-      // If it has a transaction with Statut = Accepte and ServiceDestination != my service, it's been transferred away
-      // For simplicity, we check if serviceActuel is still my service
-      return true;
+      return inMyService || transferredToMe;
     });
-  }, [visibleCourriers, userService, userId]);
+  }, [visibleCourriers, userService, userServiceEnum, userId]);
 
   // Apply search filter
   const searchedDossiers = useMemo(() => {

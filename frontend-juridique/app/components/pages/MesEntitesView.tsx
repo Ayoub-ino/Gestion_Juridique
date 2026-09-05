@@ -1,10 +1,12 @@
 "use client";
 
 import type { TranslationKeys } from "@/lib/translations";
+import { useState, useMemo } from "react";
 import { CourrierSimule, Langue, VueActive } from "@/app/types";
 import { ExportFormat } from "@/lib/exportImport";
 import { ExportButtons } from "@/app/components/common/ExportButtons";
 import { useAuth } from "@/context/AuthContext";
+import { SERVICE_GROUPS } from "@/lib/constants";
 
 interface Props {
   langue: Langue;
@@ -63,6 +65,35 @@ export function MesEntitesView({
 }: Props) {
   const { hasPermission } = useAuth();
   const canImport = hasPermission("creer_courrier_admin") || hasPermission("creer_courrier_juridique");
+
+  // Filter state
+  const [serviceFilter, setServiceFilter] = useState("all");
+  const [refFilter, setRefFilter] = useState("");
+
+  // Build flat list of all services for the dropdown
+  const allServiceOptions = useMemo(() => {
+    const options: { value: string; label: string }[] = [];
+    for (const group of SERVICE_GROUPS) {
+      for (const child of group.children) {
+        options.push({ value: child.value, label: langue === "fr" ? child.fr : child.ar });
+      }
+    }
+    return options;
+  }, [langue]);
+
+  // Apply service + reference filters to filteredGeneral
+  const displayDocs = useMemo(() => {
+    let result = filteredGeneral;
+    if (serviceFilter !== "all") {
+      result = result.filter((doc) => doc.serviceActuelKey === serviceFilter || doc.serviceActuel === serviceFilter);
+    }
+    if (refFilter.trim()) {
+      const s = refFilter.trim().toLowerCase();
+      result = result.filter((doc) => doc.reference?.toLowerCase().includes(s));
+    }
+    return result;
+  }, [filteredGeneral, serviceFilter, refFilter]);
+
   return (
     <div className="space-y-5">
       <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-4">
@@ -80,6 +111,25 @@ export function MesEntitesView({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 min-w-64 p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50"
+          />
+          {/* Service filter */}
+          <select
+            value={serviceFilter}
+            onChange={(e) => setServiceFilter(e.target.value)}
+            className="p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-white min-w-40"
+          >
+            <option value="all">{langue === "fr" ? "Tous les services" : "جميع المصالح"}</option>
+            {allServiceOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          {/* Reference filter */}
+          <input
+            type="text"
+            placeholder={langue === "fr" ? "N° de référence..." : "رقم المرجع..."}
+            value={refFilter}
+            onChange={(e) => setRefFilter(e.target.value)}
+            className="p-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-slate-50 min-w-40"
           />
           <button
             type="button"
@@ -114,7 +164,7 @@ export function MesEntitesView({
         <div className="p-4 border-b border-slate-200 flex flex-wrap gap-3 justify-between items-center">
           <div>
             <h3 className="text-sm font-bold text-slate-900">
-              {cur.mesDocuments} ({filteredGeneral.length})
+              {cur.mesDocuments} ({displayDocs.length})
             </h3>
             <p className="text-[11px] text-slate-500 font-semibold">
               {selectedIds.length} {cur.doc_selectionne}
@@ -150,12 +200,12 @@ export function MesEntitesView({
                   <input
                     type="checkbox"
                     aria-label={cur.select}
-                    checked={selectedIds.length === filteredGeneral.length && filteredGeneral.length > 0}
+                    checked={selectedIds.length === displayDocs.length && displayDocs.length > 0}
                     onChange={() => {
-                      if (selectedIds.length === filteredGeneral.length) {
+                      if (selectedIds.length === displayDocs.length) {
                         setSelectedIds([]);
                       } else {
-                        setSelectedIds(filteredGeneral.map((d) => d.id));
+                        setSelectedIds(displayDocs.map((d) => d.id));
                       }
                     }}
                   />
@@ -170,14 +220,14 @@ export function MesEntitesView({
               </tr>
             </thead>
             <tbody>
-              {filteredGeneral.length === 0 ? (
+              {displayDocs.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
                     {cur.aucunDoc}
                   </td>
                 </tr>
               ) : (
-                filteredGeneral.map((doc) => (
+                displayDocs.map((doc) => (
                   <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="p-3">
                       <input

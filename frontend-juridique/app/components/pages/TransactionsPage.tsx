@@ -35,6 +35,7 @@ export function TransactionsPage({ langue, cur, token, onAccepted, isAdmin }: Pr
   const { hasPermission } = useAuth();
   const canAccept = hasPermission("accepter");
   const canRefuse = hasPermission("refuser");
+  const canCancelTransfer = hasPermission("annuler_transfert");
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [commentaires, setCommentaires] = useState<Record<number, string>>({});
   const [retours, setRetours] = useState<Record<number, boolean>>({});
@@ -57,6 +58,7 @@ export function TransactionsPage({ langue, cur, token, onAccepted, isAdmin }: Pr
   const pendingTransactions = transactions.filter(t => t.statut === "EnAttente");
   const acceptedTransactions = transactions.filter(t => t.statut === "Accepte");
   const refusedTransactions = transactions.filter(t => t.statut === "Refuse");
+  const cancelledTransactions = transactions.filter(t => t.statut === "Annule");
 
   const exportTransactions = (format: ExportFormat) => {
     const rows = transactions.map(t => ({
@@ -260,12 +262,21 @@ export function TransactionsPage({ langue, cur, token, onAccepted, isAdmin }: Pr
                               {langue === "fr" ? "Refuser" : "رفض"}
                             </button>
                             )}
+                            {canCancelTransfer && (
+                            <button
+                              type="button"
+                              onClick={() => handleAnnuler(t.id)}
+                              className="px-2.5 py-1.5 rounded bg-amber-500 text-white text-[10px] font-bold hover:bg-amber-600 transition whitespace-nowrap"
+                            >
+                              {langue === "fr" ? "Annuler l'envoi" : "إلغاء الإرسال"}
+                            </button>
+                            )}
                           </div>
                         </div>
                       ) : t.statut === "Accepte" ? (
                         <div className="flex flex-col gap-1">
                           <span className="text-[10px] text-emerald-600 italic">{t.commentaire || "-"}</span>
-                          {isAdmin && (
+                          {canCancelTransfer && (
                             <button
                               type="button"
                               onClick={() => handleAnnuler(t.id)}
